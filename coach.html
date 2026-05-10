@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>HertzQuest 教練後台</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, 'Noto Sans TC', sans-serif;
+  background: #0A1628;
+  color: #F0F0FF;
+  min-height: 100vh;
+}
+
+/* ── 登入畫面 ── */
+#login-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 32px 20px;
+}
+.logo-area { text-align: center; margin-bottom: 36px; }
+.logo-area h1 { font-size: 26px; font-weight: 900; color: #00C9B1; }
+.logo-area p  { font-size: 14px; color: #7FBBCC; margin-top: 6px; }
+
+.login-card {
+  background: #0D2240;
+  border: 1px solid #1E4060;
+  border-radius: 20px;
+  padding: 32px 24px;
+  width: 100%;
+  max-width: 380px;
+}
+.login-card label { font-size: 13px; color: #7FBBCC; display: block; margin-bottom: 6px; }
+.login-card input {
+  width: 100%;
+  background: #112840;
+  border: 1px solid #1E4060;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 16px;
+  color: #F0F0FF;
+  outline: none;
+  margin-bottom: 20px;
+}
+.login-card input:focus { border-color: #00C9B1; }
+
+/* ── 主畫面 ── */
+#main-screen { display: none; }
+
+.top-bar {
+  background: #0D2240;
+  border-bottom: 1px solid #1E4060;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.top-bar h1 { font-size: 17px; font-weight: 700; color: #00C9B1; }
+.top-bar .logout-btn {
+  background: none;
+  border: 1px solid #1E4060;
+  color: #7FBBCC;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ── Tab 列 ── */
+.tab-bar {
+  display: flex;
+  background: #0D2240;
+  border-bottom: 1px solid #1E4060;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex: 1;
+  min-width: 80px;
+  padding: 12px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7FBBCC;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+}
+.tab-btn.active { color: #00C9B1; border-bottom-color: #00C9B1; }
+
+.tab-content { display: none; padding: 20px; }
+.tab-content.active { display: block; }
+
+/* ── 卡片 ── */
+.card {
+  background: #0D2240;
+  border: 1px solid #1E4060;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 14px;
+}
+.card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #00C9B1;
+  margin-bottom: 16px;
+}
+
+/* ── 表單 ── */
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block;
+  font-size: 12px;
+  color: #7FBBCC;
+  margin-bottom: 5px;
+}
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  background: #112840;
+  border: 1px solid #1E4060;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: #F0F0FF;
+  outline: none;
+  font-family: inherit;
+}
+.form-group input:focus,
+.form-group textarea:focus { border-color: #00C9B1; }
+.form-group textarea { resize: vertical; min-height: 80px; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ── 按鈕 ── */
+.btn {
+  display: inline-block;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  text-align: center;
+}
+.btn-primary {
+  background: #00C9B1;
+  color: #0A1628;
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+}
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-danger  { background: rgba(224,80,80,0.15); border: 1px solid #E05050; color: #E05050; }
+.btn-ghost   { background: rgba(0,201,177,0.1); border: 1px solid #00C9B1; color: #00C9B1; }
+.btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+
+/* ── 活動清單 ── */
+.session-card {
+  background: #112840;
+  border: 1px solid #1E4060;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.session-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.session-title { font-size: 15px; font-weight: 700; }
+.session-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badge-open   { background: rgba(0,201,177,0.15); color: #00C9B1; border: 1px solid #00C9B1; }
+.badge-closed { background: rgba(100,100,120,0.15); color: #7FBBCC; border: 1px solid #3A5070; }
+
+.session-meta { font-size: 12px; color: #7FBBCC; line-height: 1.9; }
+.session-meta span { display: block; }
+.meet-point { color: #00C9B1; font-weight: 600; }
+
+.session-stats {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #1E4060;
+}
+.stat-box { flex: 1; text-align: center; }
+.stat-box .num { font-size: 20px; font-weight: 900; color: #FFB030; }
+.stat-box .lbl { font-size: 10px; color: #7FBBCC; margin-top: 2px; }
+
+.session-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── 名單彈窗 ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  align-items: flex-end;
+}
+.modal-overlay.show { display: flex; }
+.modal-sheet {
+  background: #0D2240;
+  border: 1px solid #1E4060;
+  border-radius: 24px 24px 0 0;
+  padding: 24px 20px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.modal-header h3 { font-size: 16px; font-weight: 700; }
+.modal-close { font-size: 22px; cursor: pointer; color: #7FBBCC; background: none; border: none; }
+
+.member-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #1E4060;
+  gap: 12px;
+}
+.member-row:last-child { border-bottom: none; }
+.member-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: #1E4060;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; color: #00C9B1;
+  flex-shrink: 0;
+}
+.member-info { flex: 1; }
+.member-name { font-size: 14px; font-weight: 600; }
+.member-phone { font-size: 12px; color: #7FBBCC; }
+.member-date { font-size: 11px; color: #3A5070; margin-top: 2px; }
+
+/* ── 通知彈窗 ── */
+.notify-area { margin-top: 16px; }
+.notify-area textarea {
+  width: 100%;
+  background: #112840;
+  border: 1px solid #1E4060;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  color: #F0F0FF;
+  min-height: 100px;
+  resize: vertical;
+  font-family: inherit;
+  outline: none;
+}
+.notify-area textarea:focus { border-color: #00C9B1; }
+
+/* ── 訊息提示 ── */
+.toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1A3A5C;
+  border: 1px solid #00C9B1;
+  color: #00C9B1;
+  padding: 12px 24px;
+  border-radius: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.toast.error { border-color: #E05050; color: #E05050; background: #1A1020; }
+.toast.show { opacity: 1; }
+
+/* ── 空狀態 ── */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: #3A5070;
+  font-size: 14px;
+}
+
+/* ── 切換開關 ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.toggle-row label { font-size: 13px; color: #7FBBCC; }
+.toggle {
+  position: relative;
+  width: 46px;
+  height: 26px;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #1E4060;
+  border-radius: 26px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.toggle-slider:before {
+  content: '';
+  position: absolute;
+  height: 20px; width: 20px;
+  left: 3px; top: 3px;
+  background: #7FBBCC;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+.toggle input:checked + .toggle-slider { background: #00C9B1; }
+.toggle input:checked + .toggle-slider:before { transform: translateX(20px); background: #0A1628; }
+
+.loading-spinner {
+  display: inline-block;
+  width: 20px; height: 20px;
+  border: 2px solid #1E4060;
+  border-top-color: #00C9B1;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-header h2 { font-size: 16px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- 登入畫面 -->
+<div id="login-screen">
+  <div class="logo-area">
+    <h1>HertzQuest 教練後台</h1>
+    <p>團練系統管理</p>
+  </div>
+  <div class="login-card">
+    <label>教練密碼</label>
+    <input type="password" id="pwd-input" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn btn-primary" onclick="login()" id="login-btn">登入</button>
+    <div id="login-err" style="color:#E05050;font-size:13px;text-align:center;margin-top:12px;display:none"></div>
+  </div>
+</div>
+
+<!-- 主畫面 -->
+<div id="main-screen">
+  <div class="top-bar">
+    <h1>HertzQuest 教練後台</h1>
+    <button class="logout-btn" onclick="logout()">登出</button>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('sessions')" id="tab-sessions">活動列表</button>
+    <button class="tab-btn" onclick="switchTab('create')"   id="tab-create">新增團練</button>
+    <button class="tab-btn" onclick="switchTab('members')"  id="tab-members">學員名單</button>
+  </div>
+
+  <!-- ── 活動列表 ── -->
+  <div id="panel-sessions" class="tab-content active">
+    <div id="sessions-list"></div>
+  </div>
+
+  <!-- ── 新增團練 ── -->
+  <div id="panel-create" class="tab-content">
+    <div class="card">
+      <div class="card-title">新增團練</div>
+
+      <div class="form-group">
+        <label>活動標題 *</label>
+        <input type="text" id="f-title" placeholder="例：週六晨泳特訓">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>日期 *</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="form-group">
+          <label>時間</label>
+          <input type="time" id="f-time">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>地點</label>
+        <input type="text" id="f-location" placeholder="例：台北市大安區某游池">
+      </div>
+
+      <div class="form-group">
+        <label>詳細集合地點</label>
+        <input type="text" id="f-meet" placeholder="例：游池大門左側置物區旁">
+      </div>
+
+      <div class="form-group">
+        <label>活動說明</label>
+        <textarea id="f-desc" placeholder="訓練內容、注意事項…"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>負責教練</label>
+          <input type="text" id="f-coach" placeholder="教練姓名">
+        </div>
+        <div class="form-group">
+          <label>費用（NT$）</label>
+          <input type="number" id="f-price" placeholder="0 為免費" min="0">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>名額上限</label>
+        <input type="number" id="f-max" placeholder="預設 20" min="1" max="200">
+      </div>
+
+      <button class="btn btn-primary" id="create-btn" onclick="createSession()">建立團練</button>
+    </div>
+  </div>
+
+  <!-- ── 學員名單 ── -->
+  <div id="panel-members" class="tab-content">
+    <div class="card">
+      <div class="card-title">已登記學員</div>
+      <div id="members-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 報名名單彈窗 -->
+<div class="modal-overlay" id="enroll-modal" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <h3 id="modal-title">報名名單</h3>
+      <button class="modal-close" onclick="closeEnrollModal()">✕</button>
+    </div>
+    <div id="modal-count" style="font-size:13px;color:#7FBBCC;margin-bottom:16px"></div>
+    <div id="modal-list"></div>
+
+    <div class="notify-area">
+      <div style="font-size:13px;color:#7FBBCC;margin-bottom:8px;margin-top:16px">發送 LINE 通知給報名學員</div>
+      <textarea id="notify-text" placeholder="輸入要發送的訊息…"></textarea>
+      <button class="btn btn-ghost" style="width:100%;margin-top:10px" onclick="sendNotify()">發送通知</button>
+    </div>
+  </div>
+</div>
+
+<!-- 編輯活動彈窗 -->
+<div class="modal-overlay" id="edit-modal" onclick="closeEditModal(event)">
+  <div class="modal-sheet" style="padding-bottom:32px">
+    <div class="modal-header">
+      <h3>編輯活動</h3>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+
+    <div class="form-group">
+      <label>活動標題</label>
+      <input type="text" id="ef-title">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>日期</label>
+        <input type="date" id="ef-date">
+      </div>
+      <div class="form-group">
+        <label>時間</label>
+        <input type="time" id="ef-time">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>地點</label>
+      <input type="text" id="ef-location">
+    </div>
+    <div class="form-group">
+      <label>詳細集合地點</label>
+      <input type="text" id="ef-meet">
+    </div>
+    <div class="form-group">
+      <label>活動說明</label>
+      <textarea id="ef-desc"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>負責教練</label>
+        <input type="text" id="ef-coach">
+      </div>
+      <div class="form-group">
+        <label>費用（NT$）</label>
+        <input type="number" id="ef-price">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>名額上限</label>
+      <input type="number" id="ef-max">
+    </div>
+    <div class="form-group">
+      <div class="toggle-row">
+        <label>開放報名</label>
+        <label class="toggle">
+          <input type="checkbox" id="ef-active">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveEdit()">儲存</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzBy8q-19g_uRMbaEKRULHcd9xdp0k9Vv3RN0-5xV76cAGHEybC7Y_R0yYwpfS7G1SP1w/exec';
+
+let pwd = '';
+let allSessions = [];
+let currentSessionId = '';
+
+// ── 登入 ────────────────────────────────────────────
+async function login() {
+  const p = document.getElementById('pwd-input').value.trim();
+  if (!p) return;
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span>驗證中…';
+  document.getElementById('login-err').style.display = 'none';
+
+  const res = await api({ action: 'coachLogin', password: p });
+  if (res.ok) {
+    pwd = p;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display  = 'block';
+    loadSessions();
+  } else {
+    document.getElementById('login-err').textContent = res.error || '密碼錯誤';
+    document.getElementById('login-err').style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '登入';
+  }
+}
+
+function logout() {
+  pwd = '';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('main-screen').style.display  = 'none';
+  document.getElementById('pwd-input').value = '';
+}
+
+// ── Tab ────────────────────────────────────────────────────────────────
+function switchTab(id) {
+  ['sessions','create','members'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t===id);
+    document.getElementById('panel-'+t).classList.toggle('active', t===id);
+  });
+  if (id === 'sessions') loadSessions();
+  if (id === 'members')  loadMembers();
+}
+
+// ── 活動列表 ────────────────────────────────────────────────────────────
+async function loadSessions() {
+  const el = document.getElementById('sessions-list');
+  el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
+  const res = await api({ action: 'allSessions', password: pwd });
+  if (!res.ok) { el.innerHTML = `<div class="empty-state">${res.error}</div>`; return; }
+  allSessions = res.sessions;
+  renderSessions();
+}
+
+function renderSessions() {
+  const el = document.getElementById('sessions-list');
+  if (!allSessions.length) {
+    el.innerHTML = '<div class="empty-state">尚無活動，前往「新增團練」建立</div>';
+    return;
+  }
+  el.innerHTML = allSessions.map(s => `
+    <div class="session-card" id="sc-${s.id}">
+      <div class="session-header">
+        <div class="session-title">${esc(s.title)}</div>
+        <span class="session-badge ${s.active ? 'badge-open' : 'badge-closed'}">
+          ${s.active ? '開放報名' : '已關閉'}
+        </span>
+      </div>
+      <div class="session-meta">
+        <span>📅 ${s.date}${s.time ? ' ' + s.time : ''}</span>
+        ${s.location ? `<span>📍 ${esc(s.location)}</span>` : ''}
+        ${s.meetingPoint ? `<span class="meet-point">🗺 集合：${esc(s.meetingPoint)}</span>` : ''}
+        ${s.coach ? `<span>👤 教練：${esc(s.coach)}</span>` : ''}
+        ${s.price ? `<span>NT$ ${s.price}</span>` : '<span>免費</span>'}
+      </div>
+      <div class="session-stats">
+        <div class="stat-box">
+          <div class="num">${s.enrollCount || 0}</div>
+          <div class="lbl">已報名</div>
+        </div>
+        <div class="stat-box">
+          <div class="num">${s.spotsLeft}</div>
+          <div class="lbl">剩餘名額</div>
+        </div>
+        <div class="stat-box">
+          <div class="num">${s.maxSpots}</div>
+          <div class="lbl">名額上限</div>
+        </div>
+      </div>
+      <div class="session-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEnrollModal('${s.id}','${esc(s.title)}')" >查看名單</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEditModal('${s.id}')">編輯</button>
+        <button class="btn btn-danger btn-sm" onclick="toggleActive('${s.id}',${s.active})">
+          ${s.active ? '關閉報名' : '開放報名'}
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggleActive(id, current) {
+  const res = await api({ action: 'updateSession', password: pwd, sessionId: id, active: !current });
+  if (res.ok) { toast('已更新'); loadSessions(); }
+  else toast(res.error, true);
+}
+
+// ── 新增團練 ────────────────────────────────────────────────────────────
+async function createSession() {
+  const title = document.getElementById('f-title').value.trim();
+  const date  = document.getElementById('f-date').value;
+  if (!title || !date) { toast('請填寫標題和日期', true); return; }
+
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span>建立中…';
+
+  const res = await api({
+    action: 'createSession', password: pwd,
+    title, date,
+    time:         document.getElementById('f-time').value,
+    location:     document.getElementById('f-location').value.trim(),
+    meetingPoint: document.getElementById('f-meet').value.trim(),
+    description:  document.getElementById('f-desc').value.trim(),
+    coach:        document.getElementById('f-coach').value.trim(),
+    maxSpots:     document.getElementById('f-max').value || 20,
+    price:        document.getElementById('f-price').value || 0,
+  });
+
+  btn.disabled = false;
+  btn.textContent = '建立團練';
+
+  if (res.ok) {
+    toast(res.message || '已建立');
+    ['f-title','f-date','f-time','f-location','f-meet','f-desc','f-coach','f-price','f-max']
+      .forEach(id => document.getElementById(id).value = '');
+    switchTab('sessions');
+  } else {
+    toast(res.error || '建立失敗', true);
+  }
+}
+
+// ── 報名名單 ────────────────────────────────────────────────────────────
+async function openEnrollModal(sessionId, title) {
+  currentSessionId = sessionId;
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-list').innerHTML =
+    '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>載入中…</div>';
+  document.getElementById('modal-count').textContent = '';
+  document.getElementById('notify-text').value = '';
+  document.getElementById('enroll-modal').classList.add('show');
+
+  const res = await api({ action: 'getEnrollList', password: pwd, sessionId });
+  if (!res.ok) {
+    document.getElementById('modal-list').innerHTML = `<div style="color:#E05050">${res.error}</div>`;
+    return;
+  }
+
+  const list = res.list;
+  document.getElementById('modal-count').textContent = `共 ${list.length} 位學員報名`;
+
+  if (!list.length) {
+    document.getElementById('modal-list').innerHTML = '<div class="empty-state">尚無學員報名</div>';
+    return;
+  }
+
+  document.getElementById('modal-list').innerHTML = list.map((m,i) => `
+    <div class="member-row">
+      <div class="member-avatar">${m.name.charAt(0)}</div>
+      <div class="member-info">
+        <div class="member-name">${esc(m.name)}</div>
+        <div class="member-phone">${esc(m.phone)}</div>
+        <div class="member-date">報名於 ${m.at}</div>
+      </div>
+      <span style="font-size:12px;color:#7FBBCC">#${i+1}</span>
+    </div>
+  `).join('');
+}
+
+function closeEnrollModal() {
+  document.getElementById('enroll-modal').classList.remove('show');
+}
+function closeModal(e) {
+  if (e.target === document.getElementById('enroll-modal')) closeEnrollModal();
+}
+
+async function sendNotify() {
+  const msg = document.getElementById('notify-text').value.trim();
+  if (!msg) { toast('請輸入通知內容', true); return; }
+  const res = await api({ action: 'notifyStudents', password: pwd, sessionId: currentSessionId, message: msg });
+  if (res.ok) toast(`已發送給 ${res.sent} 位學員`);
+  else toast(res.error || '發送失敗', true);
+}
+
+// ── 編輯活動 ────────────────────────────────────────────────────────────
+function openEditModal(id) {
+  const s = allSessions.find(x => x.id === id);
+  if (!s) return;
+  currentSessionId = id;
+  document.getElementById('ef-title').value    = s.title;
+  document.getElementById('ef-date').value     = s.date;
+  document.getElementById('ef-time').value     = s.time || '';
+  document.getElementById('ef-location').value = s.location || '';
+  document.getElementById('ef-meet').value     = s.meetingPoint || '';
+  document.getElementById('ef-desc').value     = s.description || '';
+  document.getElementById('ef-coach').value    = s.coach || '';
+  document.getElementById('ef-price').value    = s.price || '';
+  document.getElementById('ef-max').value      = s.maxSpots || '';
+  document.getElementById('ef-active').checked = s.active;
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+async function saveEdit() {
+  const res = await api({
+    action: 'updateSession', password: pwd, sessionId: currentSessionId,
+    title:        document.getElementById('ef-title').value.trim(),
+    date:         document.getElementById('ef-date').value,
+    time:         document.getElementById('ef-time').value,
+    location:     document.getElementById('ef-location').value.trim(),
+    meetingPoint: document.getElementById('ef-meet').value.trim(),
+    description:  document.getElementById('ef-desc').value.trim(),
+    coach:        document.getElementById('ef-coach').value.trim(),
+    price:        document.getElementById('ef-price').value,
+    maxSpots:     document.getElementById('ef-max').value,
+    active:       document.getElementById('ef-active').checked,
+  });
+  if (res.ok) {
+    toast('已儲存');
+    closeEditModal();
+    loadSessions();
+  } else toast(res.error || '儲存失敗', true);
+}
+
+function closeEditModal(e) {
+  if (!e || e.target === document.getElementById('edit-modal'))
+    document.getElementById('edit-modal').classList.remove('show');
+}
+
+// ── 學員名單 ────────────────────────────────────────────────────────────
+async function loadMembers() {
+  const el = document.getElementById('members-list');
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>載入中…</div>';
+
+  const res = await api({ action: 'allSessions', password: pwd });
+  if (!res.ok) { el.innerHTML = `<div style="color:#E05050">${res.error}</div>`; return; }
+
+  const sessions = res.sessions.slice(0, 3);
+  if (!sessions.length) { el.innerHTML = '<div class="empty-state">尚無活動</div>'; return; }
+
+  let html = '';
+  for (const s of sessions) {
+    const lr = await api({ action: 'getEnrollList', password: pwd, sessionId: s.id });
+    if (!lr.ok) continue;
+    if (!lr.list.length) continue;
+    html += `<div style="font-size:13px;font-weight:700;color:#00C9B1;margin:16px 0 8px">${esc(s.title)} (${s.date})</div>`;
+    html += lr.list.map(m => `
+      <div class="member-row">
+        <div class="member-avatar">${m.name.charAt(0)}</div>
+        <div class="member-info">
+          <div class="member-name">${esc(m.name)}</div>
+          <div class="member-phone">${esc(m.phone)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+  el.innerHTML = html || '<div class="empty-state">近期活動無報名學員</div>';
+}
+
+// ── 工具 ────────────────────────────────────────────────────────────────
+async function api(data) {
+  try {
+    const r = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(data) });
+    return r.json();
+  } catch(e) {
+    return { ok: false, error: '網路錯誤' };
+  }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let toastTimer;
+function toast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = 'toast' + (isError ? ' error' : ''), 2800);
+}
+</script>
+</body>
+</html>
