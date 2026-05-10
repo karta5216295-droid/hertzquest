@@ -170,7 +170,7 @@ body { font-family:-apple-system,'Noto Sans TC',sans-serif; background:var(--bg)
   </div>
 </div>
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwkFe7NOl6QS2Q0rl-7XgpkKsoe5lixU79895_csvv_bhAiqVTdqzgo1U6pAbAYjLBqmQ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzBy8q-19g_uRMbaEKRULHcd9xdp0k9Vv3RN0-5xV76cAGHEybC7Y_R0yYwpfS7G1SP1w/exec';
 const LIFF_ID = '2010027559-58ppHoAr';
 let profile=null, member=null, sessions=[], currentTab='sessions', selectedSession=null;
 async function init(){try{await liff.init({liffId:LIFF_ID});if(!liff.isLoggedIn()){liff.login();return;}profile=await liff.getProfile();const res=await api({action:'initMember',lineUid:profile.userId,displayName:profile.displayName,pictureUrl:profile.pictureUrl});if(!res.ok){showSplashError(res.error);return;}if(res.isNew&&!res.justRegistered){showRegister();}else{member=res.member;showApp();}}catch(e){showSplashError(e.message||'載入失敗，請重新開啟');}}
