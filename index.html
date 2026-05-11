@@ -204,7 +204,11 @@ let selectedCert = null, selectedPlan = null;
 // ── Init ──────────────────────────────────────────
 async function init() {
   try {
-    await liff.init({ liffId: LIFF_ID });
+    // 10 秒超時保護
+    await Promise.race([
+      liff.init({ liffId: LIFF_ID }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('LIFF 初始化逾時（10秒）\nLIFF ID: ' + LIFF_ID + '\n請確認 LINE Developer Console 的 Endpoint URL 是否為：\nhttps://karta5216295-droid.github.io/hertzquest/')), 10000))
+    ]);
     if (!liff.isLoggedIn()) { liff.login(); return; }
     profile = await liff.getProfile();
     const res = await api({ action:'initMember', lineUid:profile.userId, displayName:profile.displayName, pictureUrl:profile.pictureUrl });
@@ -648,4 +652,5 @@ init();
 </script>
 </body>
 </html>
+
 
