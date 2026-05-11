@@ -201,7 +201,7 @@ let currentTab = 'sessions';
 let selectedSession = null, selectedTrip = null;
 let selectedCert = null, selectedPlan = null;
 
-// ── Init ────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────
 async function init() {
   try {
     await liff.init({ liffId: LIFF_ID });
@@ -246,7 +246,7 @@ function showApp() {
   switchTab('sessions');
 }
 
-// ── Tabs ────────────────────────────────────────────
+// ── Tabs ──────────────────────────────────────────
 function switchTab(tab) {
   currentTab = tab;
   ['sessions','trips','mine','profile'].forEach(t => {
@@ -303,7 +303,7 @@ async function renderTab(tab) {
   }
 }
 
-// ── Session List ──────────────────────────────────────
+// ── Session List ──────────────────────────────────
 function renderSessionList() {
   const el = document.getElementById('session-list');
   if (!sessions.length) {
@@ -365,7 +365,7 @@ function mineSessionCardHTML(s) {
     </div>`;
 }
 
-// ── Session Detail ────────────────────────────────────
+// ── Session Detail ────────────────────────────────
 function openDetail(sessionId) {
   selectedSession = sessions.find(s => s.id===sessionId);
   if (!selectedSession) return;
@@ -440,11 +440,11 @@ function selectCert(cert, btn) {
 }
 
 function certName(c) {
-  const map = { '無證':'無 證', 'A1':'A1 證照', 'A2pool':'A2 Pool', 'A2':'A2 證照' };
+  const map = { '無證':, 'A2pool':'A2 Pool', 'A2':'A2 證照' };
   return map[c] || c;
 }
 
-// ── Trip List ─────────────────────────────────────────
+// ── Trip List ─────────────────────────────────────
 function renderTripList() {
   const el = document.getElementById('trip-list');
   if (!trips.length) {
@@ -494,7 +494,7 @@ function myTripCardHTML(t) {
     </div>`;
 }
 
-// ── Trip Detail ───────────────────────────────────────
+// ── Trip Detail ───────────────────────────────────
 function openTripDetail(tripId) {
   selectedTrip = trips.find(t => t.id===tripId);
   if (!selectedTrip) return;
@@ -568,7 +568,7 @@ function closeModal(e) {
   }
 }
 
-// ── Enroll ──────────────────────────────────────────
+// ── Enroll ────────────────────────────────────────
 async function enroll(sessionId) {
   if (!selectedCert) { toast('請先選擇證照等級', 'error'); return; }
   const btn = document.getElementById('session-enroll-btn');
@@ -625,7 +625,7 @@ async function cancelTripEnroll(tripId) {
   } else toast(res.error||'取消失敗', 'error');
 }
 
-// ── Utils ────────────────────────────────────────────
+// ── Utils ─────────────────────────────────────────
 async function api(data) {
   try {
     const r = await fetch(GAS_URL, { method:'POST', body:JSON.stringify(data) });
