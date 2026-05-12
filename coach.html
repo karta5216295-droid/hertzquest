@@ -652,9 +652,9 @@ let toastTimer;
 function toast(msg, isError) {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.className = 'toast show'+isError?' error':'');
+  el.className = 'toast show'+(isError?' error':'');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.className = 'toast'+isError?' error':''), 2800);
+  toastTimer = setTimeout(() => el.className = 'toast'+(isError?' error':''), 2800);
 }
 </script>
 </body>
