@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>HertzQuest 教練後台</title>
+<title>HertzQuest æç·´å¾å°</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A1628; color: #F0F0FF; min-height: 100vh; }
@@ -117,153 +117,153 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
 
 <div id="login-screen">
   <div class="logo-area">
-    <h1>HertzQuest 教練後台</h1>
-    <p>團練系統管理</p>
+    <h1>HertzQuest æç·´å¾å°</h1>
+    <p>åç·´ç³»çµ±ç®¡ç</p>
   </div>
   <div class="login-card">
-    <label>教練密碼</label>
-    <input type="password" id="pwd-input" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')login()">
-    <button class="btn btn-primary" onclick="login()" id="login-btn">登入</button>
+    <label>æç·´å¯ç¢¼</label>
+    <input type="password" id="pwd-input" placeholder="è«è¼¸å¥å¯ç¢¼" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn btn-primary" onclick="login()" id="login-btn">ç»å¥</button>
     <div id="login-err" style="color:#E05050;font-size:13px;text-align:center;margin-top:12px;display:none"></div>
   </div>
 </div>
 
 <div id="main-screen">
   <div class="top-bar">
-    <h1>HertzQuest 教練後台</h1>
-    <button class="logout-btn" onclick="logout()">登出</button>
+    <h1>HertzQuest æç·´å¾å°</h1>
+    <button class="logout-btn" onclick="logout()">ç»åº</button>
   </div>
 
   <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('sessions')"    id="tab-sessions">活動列表</button>
-    <button class="tab-btn" onclick="switchTab('create')"             id="tab-create">新增團練</button>
-    <button class="tab-btn" onclick="switchTab('trips')"              id="tab-trips">🤿 旅行</button>
-    <button class="tab-btn" onclick="switchTab('create-trip')"        id="tab-create-trip">新增旅行</button>
-    <button class="tab-btn" onclick="switchTab('members')"            id="tab-members">學員名單</button>
+    <button class="tab-btn active" onclick="switchTab('sessions')"    id="tab-sessions">æ´»ååè¡¨</button>
+    <button class="tab-btn" onclick="switchTab('create')"             id="tab-create">æ°å¢åç·´</button>
+    <button class="tab-btn" onclick="switchTab('trips')"              id="tab-trips">ð¤¿ æè¡</button>
+    <button class="tab-btn" onclick="switchTab('create-trip')"        id="tab-create-trip">æ°å¢æè¡</button>
+    <button class="tab-btn" onclick="switchTab('members')"            id="tab-members">å­¸å¡åå®</button>
   </div>
 
-  <!-- 活動列表 -->
+  <!-- æ´»ååè¡¨ -->
   <div id="panel-sessions" class="tab-content active">
     <div id="sessions-list"></div>
   </div>
 
-  <!-- 新增團練 -->
+  <!-- æ°å¢åç·´ -->
   <div id="panel-create" class="tab-content">
     <div class="card">
-      <div class="card-title">新增團練</div>
-      <div class="form-group"><label>活動標題 *</label><input type="text" id="f-title" placeholder="例：週六晨泳特訓"></div>
+      <div class="card-title">æ°å¢åç·´</div>
+      <div class="form-group"><label>æ´»åæ¨é¡ *</label><input type="text" id="f-title" placeholder="ä¾ï¼é±å­æ¨æ³³ç¹è¨"></div>
       <div class="form-row">
-        <div class="form-group"><label>日期 *</label><input type="date" id="f-date"></div>
-        <div class="form-group"><label>時間</label><input type="time" id="f-time"></div>
+        <div class="form-group"><label>æ¥æ *</label><input type="date" id="f-date"></div>
+        <div class="form-group"><label>æé</label><input type="time" id="f-time"></div>
       </div>
-      <div class="form-group"><label>地點</label><input type="text" id="f-location" placeholder="例：潛立方"></div>
-      <div class="form-group"><label>詳細集合地點</label><input type="text" id="f-meet" placeholder="例：一樓大廳"></div>
-      <div class="form-group"><label>活動說明</label><textarea id="f-desc" placeholder="訓練內容、注意事項…"></textarea></div>
+      <div class="form-group"><label>å°é»</label><input type="text" id="f-location" placeholder="ä¾ï¼æ½ç«æ¹"></div>
+      <div class="form-group"><label>è©³ç´°éåå°é»</label><input type="text" id="f-meet" placeholder="ä¾ï¼ä¸æ¨å¤§å»³"></div>
+      <div class="form-group"><label>æ´»åèªªæ</label><textarea id="f-desc" placeholder="è¨ç·´å§å®¹ãæ³¨æäºé â¦"></textarea></div>
       <div class="form-row">
-        <div class="form-group"><label>負責教練</label><input type="text" id="f-coach" placeholder="教練姓名"></div>
-        <div class="form-group"><label>費用（NT$）</label><input type="number" id="f-price" placeholder="0 免費" min="0"></div>
+        <div class="form-group"><label>è² è²¬æç·´</label><input type="text" id="f-coach" placeholder="æç·´å§å"></div>
+        <div class="form-group"><label>è²»ç¨ï¼NT$ï¼</label><input type="number" id="f-price" placeholder="0 åè²»" min="0"></div>
       </div>
       <div class="form-group">
-        <label>有證名額上限（無證固定 4 位）</label>
-        <input type="number" id="f-max" placeholder="預設 2" min="0" max="50">
+        <label>æè­åé¡ä¸éï¼ç¡è­åºå® 4 ä½ï¼</label>
+        <input type="number" id="f-max" placeholder="é è¨­ 2" min="0" max="50">
       </div>
-      <button class="btn btn-primary" id="create-btn" onclick="createSession()">建立團練</button>
+      <button class="btn btn-primary" id="create-btn" onclick="createSession()">å»ºç«åç·´</button>
     </div>
   </div>
 
-  <!-- 潛水旅行列表 -->
+  <!-- æ½æ°´æè¡åè¡¨ -->
   <div id="panel-trips" class="tab-content">
     <div id="trips-list"></div>
   </div>
 
-  <!-- 新增旅行 -->
+  <!-- æ°å¢æè¡ -->
   <div id="panel-create-trip" class="tab-content">
     <div class="card">
-      <div class="card-title">新增潛水旅行</div>
-      <div class="form-group"><label>旅行標題 *</label><input type="text" id="ft-title" placeholder="例：帛琉藍色珊瑚礁之旅"></div>
-      <div class="form-group"><label>國家 / 地區 *</label><input type="text" id="ft-country" placeholder="例：帛琉 Palau"></div>
+      <div class="card-title">æ°å¢æ½æ°´æè¡</div>
+      <div class="form-group"><label>æè¡æ¨é¡ *</label><input type="text" id="ft-title" placeholder="ä¾ï¼å¸çèè²ççç¤ä¹æ"></div>
+      <div class="form-group"><label>åå®¶ / å°å *</label><input type="text" id="ft-country" placeholder="ä¾ï¼å¸ç Palau"></div>
       <div class="form-row">
-        <div class="form-group"><label>出發日期</label><input type="date" id="ft-start"></div>
-        <div class="form-group"><label>回程日期</label><input type="date" id="ft-end"></div>
+        <div class="form-group"><label>åºç¼æ¥æ</label><input type="date" id="ft-start"></div>
+        <div class="form-group"><label>åç¨æ¥æ</label><input type="date" id="ft-end"></div>
       </div>
-      <div class="form-group"><label>詳細行程</label><textarea id="ft-itinerary" style="min-height:120px" placeholder="Day 1：抵達後辦理 Check-in…&#10;Day 2：上午潛水兩支…"></textarea></div>
-      <div class="form-group"><label>費用包含</label><textarea id="ft-inclusions" placeholder="住宿、潛水費用、潛水器材租借、教練費…&#10;（不含機票）"></textarea></div>
+      <div class="form-group"><label>è©³ç´°è¡ç¨</label><textarea id="ft-itinerary" style="min-height:120px" placeholder="Day 1ï¼æµéå¾è¾¦ç Check-inâ¦&#10;Day 2ï¼ä¸åæ½æ°´å©æ¯â¦"></textarea></div>
+      <div class="form-group"><label>è²»ç¨åå«</label><textarea id="ft-inclusions" placeholder="ä½å®¿ãæ½æ°´è²»ç¨ãæ½æ°´å¨æç§åãæç·´è²»â¦&#10;ï¼ä¸å«æ©ç¥¨ï¼"></textarea></div>
       <div class="form-row">
-        <div class="form-group"><label>單人費用（NT$）*</label><input type="number" id="ft-price-single" placeholder="例：25000" min="0"></div>
-        <div class="form-group"><label>雙人團報（NT$/人）</label><input type="number" id="ft-price-couple" placeholder="例：22000" min="0"></div>
+        <div class="form-group"><label>å®äººè²»ç¨ï¼NT$ï¼*</label><input type="number" id="ft-price-single" placeholder="ä¾ï¼25000" min="0"></div>
+        <div class="form-group"><label>éäººåå ±ï¼NT$/äººï¼</label><input type="number" id="ft-price-couple" placeholder="ä¾ï¼22000" min="0"></div>
       </div>
-      <div class="form-group"><label>名額上限</label><input type="number" id="ft-max" placeholder="預設 20" min="1"></div>
-      <div class="form-group"><label>備註</label><textarea id="ft-notes" placeholder="集合地點、行前說明…"></textarea></div>
-      <button class="btn btn-primary" id="create-trip-btn" onclick="createTrip()">建立旅行</button>
+      <div class="form-group"><label>åé¡ä¸é</label><input type="number" id="ft-max" placeholder="é è¨­ 20" min="1"></div>
+      <div class="form-group"><label>åè¨»</label><textarea id="ft-notes" placeholder="éåå°é»ãè¡åèªªæâ¦"></textarea></div>
+      <button class="btn btn-primary" id="create-trip-btn" onclick="createTrip()">å»ºç«æè¡</button>
     </div>
   </div>
 
-  <!-- 學員名單 -->
+  <!-- å­¸å¡åå® -->
   <div id="panel-members" class="tab-content">
     <div class="card">
-      <div class="card-title">已登記學員</div>
+      <div class="card-title">å·²ç»è¨å­¸å¡</div>
       <div id="members-list"></div>
     </div>
   </div>
 </div>
 
-<!-- 團練報名名單 -->
+<!-- åç·´å ±ååå® -->
 <div class="modal-overlay" id="enroll-modal" onclick="closeModal(event)">
   <div class="modal-sheet">
     <div class="modal-header">
-      <h3 id="modal-title">報名名單</h3>
-      <button class="modal-close" onclick="closeEnrollModal()">✕</button>
+      <h3 id="modal-title">å ±ååå®</h3>
+      <button class="modal-close" onclick="closeEnrollModal()">â</button>
     </div>
     <div id="modal-count" style="font-size:13px;color:#7FBBCC;margin-bottom:10px"></div>
     <div id="modal-cert-bar"></div>
     <div id="modal-list"></div>
     <div class="notify-area">
-      <div style="font-size:13px;color:#7FBBCC;margin-bottom:8px;margin-top:16px">發送 LINE 通知</div>
-      <textarea id="notify-text" placeholder="輸入要發送的訊息…"></textarea>
-      <button class="btn btn-ghost" style="width:100%;margin-top:10px" onclick="sendNotify()">發送通知</button>
+      <div style="font-size:13px;color:#7FBBCC;margin-bottom:8px;margin-top:16px">ç¼é LINE éç¥</div>
+      <textarea id="notify-text" placeholder="è¼¸å¥è¦ç¼éçè¨æ¯â¦"></textarea>
+      <button class="btn btn-ghost" style="width:100%;margin-top:10px" onclick="sendNotify()">ç¼ééç¥</button>
     </div>
   </div>
 </div>
 
-<!-- 旅行報名名單 -->
+<!-- æè¡å ±ååå® -->
 <div class="modal-overlay" id="trip-modal" onclick="closeTripModalOverlay(event)">
   <div class="modal-sheet">
     <div class="modal-header">
-      <h3 id="trip-modal-title">旅行報名名單</h3>
-      <button class="modal-close" onclick="closeTripModal()">✕</button>
+      <h3 id="trip-modal-title">æè¡å ±ååå®</h3>
+      <button class="modal-close" onclick="closeTripModal()">â</button>
     </div>
     <div id="trip-modal-count" style="font-size:13px;color:#7FBBCC;margin-bottom:16px"></div>
     <div id="trip-modal-list"></div>
   </div>
 </div>
 
-<!-- 編輯活動 -->
+<!-- ç·¨è¼¯æ´»å -->
 <div class="modal-overlay" id="edit-modal" onclick="closeEditModal(event)">
   <div class="modal-sheet" style="padding-bottom:32px">
     <div class="modal-header">
-      <h3>編輯活動</h3>
-      <button class="modal-close" onclick="closeEditModal()">✕</button>
+      <h3>ç·¨è¼¯æ´»å</h3>
+      <button class="modal-close" onclick="closeEditModal()">â</button>
     </div>
-    <div class="form-group"><label>活動標題</label><input type="text" id="ef-title"></div>
+    <div class="form-group"><label>æ´»åæ¨é¡</label><input type="text" id="ef-title"></div>
     <div class="form-row">
-      <div class="form-group"><label>日期</label><input type="date" id="ef-date"></div>
-      <div class="form-group"><label>時間</label><input type="time" id="ef-time"></div>
+      <div class="form-group"><label>æ¥æ</label><input type="date" id="ef-date"></div>
+      <div class="form-group"><label>æé</label><input type="time" id="ef-time"></div>
     </div>
-    <div class="form-group"><label>地點</label><input type="text" id="ef-location"></div>
-    <div class="form-group"><label>詳細集合地點</label><input type="text" id="ef-meet"></div>
-    <div class="form-group"><label>活動說明</label><textarea id="ef-desc"></textarea></div>
+    <div class="form-group"><label>å°é»</label><input type="text" id="ef-location"></div>
+    <div class="form-group"><label>è©³ç´°éåå°é»</label><input type="text" id="ef-meet"></div>
+    <div class="form-group"><label>æ´»åèªªæ</label><textarea id="ef-desc"></textarea></div>
     <div class="form-row">
-      <div class="form-group"><label>負責教練</label><input type="text" id="ef-coach"></div>
-      <div class="form-group"><label>費用（NT$）</label><input type="number" id="ef-price"></div>
+      <div class="form-group"><label>è² è²¬æç·´</label><input type="text" id="ef-coach"></div>
+      <div class="form-group"><label>è²»ç¨ï¼NT$ï¼</label><input type="number" id="ef-price"></div>
     </div>
-    <div class="form-group"><label>有證名額上限</label><input type="number" id="ef-max"></div>
+    <div class="form-group"><label>æè­åé¡ä¸é</label><input type="number" id="ef-max"></div>
     <div class="form-group">
       <div class="toggle-row">
-        <label>開放報名</label>
+        <label>éæ¾å ±å</label>
         <label class="toggle"><input type="checkbox" id="ef-active"><span class="toggle-slider"></span></label>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="saveEdit()">儲存</button>
+    <button class="btn btn-primary" onclick="saveEdit()">å²å­</button>
   </div>
 </div>
 
@@ -283,7 +283,7 @@ async function login() {
   const p = document.getElementById('pwd-input').value.trim();
   if (!p) return;
   const btn = document.getElementById('login-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>驗證中…';
+  btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>é©è­ä¸­â¦';
   document.getElementById('login-err').style.display = 'none';
   const res = await api({ action: 'coachLogin', password: p });
   if (res.ok) {
@@ -292,9 +292,9 @@ async function login() {
     document.getElementById('main-screen').style.display  = 'block';
     loadSessions();
   } else {
-    document.getElementById('login-err').textContent = res.error || '密碼錯誤';
+    document.getElementById('login-err').textContent = res.error || 'å¯ç¢¼é¯èª¤';
     document.getElementById('login-err').style.display = 'block';
-    btn.disabled = false; btn.textContent = '登入';
+    btn.disabled = false; btn.textContent = 'ç»å¥';
   }
 }
 
@@ -315,10 +315,10 @@ function switchTab(id) {
   if (id === 'members')    loadMembers();
 }
 
-// ── 活動列表 ──────────────────────────────────────
+// ââ æ´»ååè¡¨ ââââââââââââââââââââââââââââââââââââââ
 async function loadSessions() {
   const el = document.getElementById('sessions-list');
-  el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
+  el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>è¼å¥ä¸­â¦</div>';
   const res = await api({ action: 'allSessions', password: pwd });
   if (!res.ok) { el.innerHTML = `<div class="empty-state">${res.error}</div>`; return; }
   allSessions = res.sessions;
@@ -328,7 +328,7 @@ async function loadSessions() {
 function renderSessions() {
   const el = document.getElementById('sessions-list');
   if (!allSessions.length) {
-    el.innerHTML = '<div class="empty-state">尚無活動，前往「新增團練」建立</div>';
+    el.innerHTML = '<div class="empty-state">å°ç¡æ´»åï¼åå¾ãæ°å¢åç·´ãå»ºç«</div>';
     return;
   }
   el.innerHTML = allSessions.map(s => {
@@ -339,34 +339,34 @@ function renderSessions() {
     <div class="session-card">
       <div class="session-header">
         <div class="session-title">${esc(s.title)}</div>
-        <span class="session-badge ${s.active?'badge-open':'badge-closed'}">${s.active?'開放報名':'已關閉'}</span>
+        <span class="session-badge ${s.active?'badge-open':'badge-closed'}">${s.active?'éæ¾å ±å':'å·²éé'}|/span>
       </div>
       <div class="session-meta">
-        <span>📅 ${s.date}${s.time?' '+s.time:''}</span>
-        ${s.location?`<span>📍 ${esc(s.location)}</span>`:''}
-        ${s.meetingPoint?`<span class="meet-point">🗺 集合：${esc(s.meetingPoint)}</span>`:''}
-        ${s.coach?`<span>👤 教練：${esc(s.coach)}</span>`:''}
-        ${s.price?`<span>NT$ ${s.price}</span>`:'<span>免費</span>'}
+        <span>ð ${s.date}${s.time?' '+s.time:''}</span>
+        ${s.location?`<span>ð ${esc(s.location)}</span>`:''}
+        ${s.meetingPoint?`<span class="meet-point">ðº éåï¼${esc(s.meetingPoint)}</span>`:''}
+        ${s.coach?`<span>ð¤ æç·´ï¼${esc(s.coach)}</span>`:''}
+        ${s.price?`<span>NT$ ${s.price}</span>`:'<span>åè²»</span>'}
       </div>
       <div class="session-stats">
-        <div class="stat-box"><div class="num">${s.enrollCount||0}</div><div class="lbl">已報名</div></div>
-        <div class="stat-box"><div class="num">${s.spotsLeft}</div><div class="lbl">剩餘名額</div></div>
-        <div class="stat-box"><div class="num">${s.maxSpots}</div><div class="lbl">名額上限</div></div>
+        <div class="stat-box"><div class="num">${s.enrollCount||0}</div><div class="lbl">å·²å ±å</div></div>
+        <div class="stat-box"><div class="num">${s.spotsLeft}</div><div class="lbl">å©é¤åé¡</div></div>
+        <div class="stat-box"><div class="num">${s.maxSpots}</div><div class="lbl">åé¡ä¸é</div></div>
       </div>
       <div class="cert-bar">
         <div class="cert-bar-item">
           <div class="cert-bar-num" style="color:${uncertLeft>0?'#FFB030':'#E05050'}">${uncertCount}/${MAX_UNCERT}</div>
-          <div class="cert-bar-lbl">無證</div>
+          <div class="cert-bar-lbl">ç¡è­</div>
         </div>
-        <div class="cert-bar-item"><div class="cert-bar-num" style="color:#00C9B1">${certCount}</div><div class="cert-bar-lbl">有證</div></div>
-        <div class="cert-bar-item"><div class="cert-bar-num" style="color:${uncertLeft>0?'#00C9B1':'#E05050'}">${uncertLeft}</div><div class="cert-bar-lbl">無證剩餘</div></div>
-        <div class="cert-bar-item"><div class="cert-bar-num" style="color:#00C9B1">${s.spotsLeft}</div><div class="cert-bar-lbl">有證剩餘</div></div>
+        <div class="cert-bar-item"><div class="cert-bar-num" style="color:#00C9B1">${certCount}</div><div class="cert-bar-lbl">æè­</div></div>
+        <div class="cert-bar-item"><div class="cert-bar-num" style="color:${uncertLeft>0?'#00C9B1':'#E05050'}">${uncertLeft}</div><div class="cert-bar-lbl">ç¡è­å©é¤</div></div>
+        <div class="cert-bar-item"><div class="cert-bar-num" style="color:#00C9B1">${s.spotsLeft}</div><div class="cert-bar-lbl">æè­å©é¤</div></div>
       </div>
-      ${uncertCount >= MAX_UNCERT ? '<div class="uncert-warn">⚠️ 無證名額已滿（4/4）</div>' : ''}
+      ${uncertCount >= MAX_UNCERT ? '<div class="uncert-warn">â ï¸ ç¡è­åé¡å·²æ»¿ï¼4/4ï¼</div>' : ''}
       <div class="session-actions">
-        <button class="btn btn-ghost btn-sm" onclick="openEnrollModal('${s.id}','${esc(s.title)}')">查看名單</button>
-        <button class="btn btn-ghost btn-sm" onclick="openEditModal('${s.id}')">編輯</button>
-        <button class="btn btn-danger btn-sm" onclick="toggleActive('${s.id}',${s.active})">${s.active?'關閉報名':'開放報名'}</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEnrollModal('${s.id}','${esc(s.title)}')">æ¥çåå®</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEditModal('${s.id}')">ç·¨è¼¯</button>
+        <button class="btn btn-danger btn-sm" onclick="toggleActive('${s.id}',${s.active})">${s.active?'ééå ±å':'éæ¾å ±å'}</button>
       </div>
     </div>`;
   }).join('');
@@ -374,17 +374,17 @@ function renderSessions() {
 
 async function toggleActive(id, current) {
   const res = await api({ action: 'updateSession', password: pwd, sessionId: id, active: !current });
-  if (res.ok) { toast('已更新'); loadSessions(); }
+  if (res.ok) { toast('å·²æ´æ°'); loadSessions(); }
   else toast(res.error, true);
 }
 
-// ── 新增團練 ──────────────────────────────────────
+// ââ æ°å¢åç·´ ââââââââââââââââââââââââââââââââââââââ
 async function createSession() {
   const title = document.getElementById('f-title').value.trim();
   const date  = document.getElementById('f-date').value;
-  if (!title || !date) { toast('請填寫標題和日期', true); return; }
+  if (!title || !date) { toast('è«å¡«å¯«æ¨é¡åæ¥æ', true); return; }
   const btn = document.getElementById('create-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>建立中…';
+  btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>å»ºç«ä¸­â¦';
   const certMax = parseInt(document.getElementById('f-max').value) || 2;
   const totalMax = MAX_UNCERT + certMax;
   const res = await api({
@@ -398,20 +398,20 @@ async function createSession() {
     certMaxSpots: certMax,
     price:        document.getElementById('f-price').value || 0,
   });
-  btn.disabled = false; btn.textContent = '建立團練';
+  btn.disabled = false; btn.textContent = 'å»ºç«åç·´';
   if (res.ok) {
-    toast(res.message || '已建立');
+    toast(res.message || 'å·²å»ºç«');
     ['f-title','f-date','f-time','f-location','f-meet','f-desc','f-coach','f-price','f-max'].forEach(id => document.getElementById(id).value = '');
     switchTab('sessions');
-  } else toast(res.error || '建立失敗', true);
+  } else toast(res.error || 'å»ºç«å¤±æ', true);
 }
 
-// ── 潛水旅行 ──────────────────────────────────────
+// ââ æ½æ°´æè¡ ââââââââââââââââââââââââââââââââââââââ
 async function loadTrips() {
   const el = document.getElementById('trips-list');
-  el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
+  el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>è¼å¥ä¸­â¦</div>';
   const res = await api({ action: 'getTrips', password: pwd });
-  if (!res.ok) { el.innerHTML = `<div class="empty-state">${res.error||'載入失敗'}</div>`; return; }
+  if (!res.ok) { el.innerHTML = `<div class="empty-state">${res.error||'è¼å¥å¤±æ'}</div>`; return; }
   allTrips = res.trips || [];
   renderTrips();
 }
@@ -419,33 +419,33 @@ async function loadTrips() {
 function renderTrips() {
   const el = document.getElementById('trips-list');
   if (!allTrips.length) {
-    el.innerHTML = '<div class="empty-state">尚無旅行，前往「新增旅行」建立</div>';
+    el.innerHTML = '<div class="empty-state">å°ç¡æè¡ï¼åå¾ãæ°å¢æè¡ãå»ºç«</div>';
     return;
   }
   el.innerHTML = allTrips.map(t => {
-    const dateRange = t.startDate?(t.endDate?`${t.startDate} ～ ${t.endDate}`:t.startDate):'日期待定';
+    const dateRange = t.startDate?(t.endDate?`${t.startDate} ï½ ${t.endDate}`:t.startDate):'æ¥æå¾å®';
     const isActive = t.active !== false && t.active !== 'FALSE';
     return `
     <div class="trip-card">
-      <div class="trip-country-lbl">📍 ${esc(t.country||'—')}</div>
+      <div class="trip-country-lbl">ð ${esc(t.country||'â')}</div>
       <div class="session-header">
         <div class="trip-title-h">${esc(t.title)}</div>
-        <span class="session-badge ${isActive?'badge-open':'badge-closed'}">${isActive?'開放中':'已關閉'}</span>
+        <span class="session-badge ${isActive?'badge-open':'badge-closed'}">${isActive?'éæ¾ä¸­':'å·²éé'}</span>
       </div>
-      <div class="trip-info">🗓 ${dateRange}</div>
-      <div class="trip-info" style="color:#5A7A90;margin-top:2px">✈️ 機票費用自理</div>
+      <div class="trip-info">ð ${dateRange}</div>
+      <div class="trip-info" style="color:#5A7A90;margin-top:2px">âï¸ æ©ç¥¨è²»ç¨èªç</div>
       <div class="price-tags">
-        ${t.priceSingle?`<span class="price-tag">單人 NT$ ${Number(t.priceSingle).toLocaleString()}</span>`:''}
-        ${t.priceCouple?`<span class="price-tag">雙人 NT$ ${Number(t.priceCouple).toLocaleString()}/人</span>`:''}
+        ${t.priceSingle?`<span class="price-tag">å®äºº NT$ ${Number(t.priceSingle).toLocaleString()}</span>`:''}
+        ${t.priceCouple?`<span class="price-tag">éäºº NT$ ${Number(t.priceCouple).toLocaleString()}/äºº</span>`:''}
       </div>
       <div class="session-stats">
-        <div class="stat-box"><div class="num">${t.enrollCount||0}</div><div class="lbl">已報名</div></div>
-        <div class="stat-box"><div class="num">${t.spotsLeft||0}</div><div class="lbl">剩餘名額</div></div>
-        <div class="stat-box"><div class="num">${t.maxSpots||'—'}</div><div class="lbl">名額上限</div></div>
+        <div class="stat-box"><div class="num">${t.enrollCount||0}</div><div class="lbl">å·²å ±å</div></div>
+        <div class="stat-box"><div class="num">${t.spotsLeft||0}</div><div class="lbl">å©é¤åé¡</div></div>
+        <div class="stat-box"><div class="num">${t.maxSpots||'â'}</div><div class="lbl">åé¡ä¸é</div></div>
       </div>
       <div class="session-actions">
-        <button class="btn btn-ghost btn-sm" onclick="openTripModal('${t.id}','${esc(t.title)}')">查看名單</button>
-        <button class="btn btn-danger btn-sm" onclick="toggleTripActive('${t.id}',${isActive})">${isActive?'關閉':'開放'}</button>
+        <button class="btn btn-ghost btn-sm" onclick="openTripModal('${t.id}','${esc(t.title)}')">æ¥çåå®</button>
+        <button class="btn btn-danger btn-sm" onclick="toggleTripActive('${t.id}',${isActive})">${isActive?'éé':'éæ¾'}</button>
       </div>
     </div>`;
   }).join('');
@@ -453,18 +453,18 @@ function renderTrips() {
 
 async function toggleTripActive(id, current) {
   const res = await api({ action: 'updateTrip', password: pwd, tripId: id, active: !current });
-  if (res.ok) { toast('已更新'); loadTrips(); }
+  if (res.ok) { toast('å·²æ´æ°'); loadTrips(); }
   else toast(res.error, true);
 }
 
-// ── 新增旅行 ──────────────────────────────────────
+// ââ æ°å¢æè¡ ââââââââââââââââââââââââââââââââââââââ
 async function createTrip() {
   const title   = document.getElementById('ft-title').value.trim();
   const country = document.getElementById('ft-country').value.trim();
   const priceSingle = document.getElementById('ft-price-single').value;
-  if (!title || !country || !priceSingle) { toast('請填寫標題、國家和單人費用', true); return; }
+  if (!title || !country || !priceSingle) { toast('è«å¡«å¯«æ¨é¡ãåå®¶åå®äººè²»ç¨', true); return; }
   const btn = document.getElementById('create-trip-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>建立中…';
+  btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>å»ºç«ä¸­â¦';
   const res = await api({
     action: 'createTrip', password: pwd, title, country,
     startDate:   document.getElementById('ft-start').value,
@@ -475,19 +475,19 @@ async function createTrip() {
     maxSpots:    document.getElementById('ft-max').value || 20,
     notes:       document.getElementById('ft-notes').value.trim(),
   });
-  btn.disabled = false; btn.textContent = '建立旅行';
+  btn.disabled = false; btn.textContent = 'å»ºç«æè¡';
   if (res.ok) {
-    toast(res.message || '旅行已建立');
+    toast(res.message || 'æè¡å·²å»ºç«');
     ['ft-title','ft-country','ft-start','ft-end','ft-itinerary','ft-inclusions','ft-price-single','ft-price-couple','ft-max','ft-notes'].forEach(id => document.getElementById(id).value = '');
     switchTab('trips');
-  } else toast(res.error || '建立失敗', true);
+  } else toast(res.error || 'å»ºç«å¤±æ', true);
 }
 
-// ── 報名名單（團練） ──────────────────────────────
+// ââ å ±ååå®ï¼åç·´ï¼ ââââââââââââââââââââââââââââââ
 async function openEnrollModal(sessionId, title) {
   currentSessionId = sessionId;
   document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-list').innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>載入中…</div>';
+  document.getElementById('modal-list').innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>è¼å¥ä¸­â¦</div>';
   document.getElementById('modal-count').textContent = '';
   document.getElementById('modal-cert-bar').innerHTML = '';
   document.getElementById('notify-text').value = '';
@@ -496,31 +496,45 @@ async function openEnrollModal(sessionId, title) {
   const res = await api({ action: 'getEnrollList', password: pwd, sessionId });
   if (!res.ok) { document.getElementById('modal-list').innerHTML = `<div style="color:#E05050">${res.error}</div>`; return; }
   const list = res.list;
-  document.getElementById('modal-count').textContent = `共 ${list.length} 位學員報名`;
+  document.getElementById('modal-count').textContent = `å± ${list.length} ä½å­¸å¡å ±å`;
 
-  const counts = { '無證':0, 'A1':0, 'A2pool':0, 'A2':0 };
+  const counts = { 'ç¡è­':0, 'A1':0, 'A2pool':0, 'A2':0 };
   list.forEach(m => { if (counts[m.certLevel] !== undefined) counts[m.certLevel]++; });
   document.getElementById('modal-cert-bar').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;padding:12px;background:#112840;border-radius:12px">
-      <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:${counts['無證']>=MAX_UNCERT?'#E05050':'#FFB030'}">${counts['無證']}/${MAX_UNCERT}</div><div style="font-size:10px;color:#7FBBCC">無 證</div></div>
+      <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:${counts['ç¡è­']>=MAX_UNCERT?'#E05050':'#FFB030'}">${counts['ç¡è­']}/${MAX_UNCERT}</div><div style="font-size:10px;color:#7FBBCC">ç¡ è­</div></div>
       <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:#00C9B1">${counts.A1}</div><div style="font-size:10px;color:#7FBBCC">A1</div></div>
       <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:#00C9B1">${counts.A2pool}</div><div style="font-size:10px;color:#7FBBCC">A2 Pool</div></div>
       <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:#00C9B1">${counts.A2}</div><div style="font-size:10px;color:#7FBBCC">A2</div></div>
     </div>`;
 
-  if (!list.length) { document.getElementById('modal-list').innerHTML = '<div class="empty-state">尚無學員報名</div>'; return; }
-  document.getElementById('modal-list').innerHTML = list.map((m,i) => `
+  if (!list.length) { document.getElementById('modal-list').innerHTML = '<div class="empty-state">å°ç¡å­¸å¡å ±å</div>'; return; }
+  document.getElementById('modal-list').innerHTML = list.map((m,i) => {
+    const eid = esc(m.id||('idx'+i));
+    const isPaid = m.paymentStatus === 'confirmed';
+    const payHTML = isPaid
+      ? `<span style="color:#00C9B1;font-size:12px;font-weight:700">â å·²æ¶æ¬¾</span>`
+      : `<span style="color:#FFB030;font-size:11px">å¾æ¶æ¬¾${m.transferCode?' Â· æ«5ç¢¼ '+esc(m.transferCode):''}</span>
+         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-top:3px">
+           <input type="checkbox" id="pay-cb-${eid}" onchange="confirmPaymentAction('${esc(m.id||'')}','${eid}',this)" style="width:14px;height:14px;cursor:pointer;accent-color:#00C9B1">
+           <span style="font-size:11px;color:#7FBBCC">å·²æ¶æ¬¾ â</span>
+         </label>`;
+    return `
     <div class="member-row">
       <div class="member-avatar">${(m.name||'?').charAt(0)}</div>
       <div class="member-info">
         <div class="member-name">${esc(m.name)}</div>
         <div class="member-phone">${esc(m.phone||'')}</div>
-        <div class="member-date">報名於 ${fmtDT(m.at)}</div>
+        <div class="member-date">å ±åæ¼ ${fmtDT(m.at)}</div>
+        ${m.lineUid?`<div style="font-size:11px;color:#7FBBCC;cursor:pointer;margin-top:2px;user-select:all" onclick="copyUID('${esc(m.lineUid)}')">LINE: ${esc(m.lineUid)}</div>`:''}
       </div>
-      ${m.certLevel?`<span class="cert-badge">${certName(m.certLevel)}</span>`:''}
-      <span style="font-size:12px;color:#7FBBCC">#${i+1}</span>
-    </div>
-  `).join('');
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        ${m.certLevel?`<span class="cert-badge">${certName(m.certLevel)}</span>`:''}
+        <div id="pay-status-${eid}">${payHTML}</div>
+        <span style="font-size:12px;color:#7FBBCC">#${i+1}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function closeEnrollModal() { document.getElementById('enroll-modal').classList.remove('show'); }
@@ -528,17 +542,17 @@ function closeModal(e) { if (e.target===document.getElementById('enroll-modal'))
 
 async function sendNotify() {
   const msg = document.getElementById('notify-text').value.trim();
-  if (!msg) { toast('請輸入通知內容', true); return; }
+  if (!msg) { toast('è«è¼¸å¥éç¥å§å®¹', true); return; }
   const res = await api({ action: 'notifyStudents', password: pwd, sessionId: currentSessionId, message: msg });
-  if (res.ok) toast(`已發送給 ${res.sent} 位學員`);
-  else toast(res.error || '發送失敗', true);
+  if (res.ok) toast(`å·²ç¼éçµ¦ ${res.sent} ä½å­¸å¡`);
+  else toast(res.error || 'ç¼éå¤±æ', true);
 }
 
-// ── 旅行報名名單 ─────────────────────────────────
+// ââ æè¡å ±ååå® âââââââââââââââââââââââââââââââââ
 async function openTripModal(tripId, title) {
   currentTripId = tripId;
   document.getElementById('trip-modal-title').textContent = title;
-  document.getElementById('trip-modal-list').innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>載入中…</div>';
+  document.getElementById('trip-modal-list').innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>è¼å¥ä¸­â¦</div>';
   document.getElementById('trip-modal-count').textContent = '';
   document.getElementById('trip-modal').classList.add('show');
 
@@ -547,18 +561,18 @@ async function openTripModal(tripId, title) {
   const list = res.list;
   const sc = list.filter(m=>m.plan==='single').length;
   const cc = list.filter(m=>m.plan==='couple').length;
-  document.getElementById('trip-modal-count').innerHTML = `共 ${list.length} 位 &emsp; <span style="color:#00C9B1">單人：${sc}</span> &emsp; <span style="color:#FFB030">雙人：${cc}</span>`;
+  document.getElementById('trip-modal-count').innerHTML = `å± ${list.length} ä½ &emsp; <span style="color:#00C9B1">å®äººï¼${sc}</span> &emsp; <span style="color:#FFB030">éäººï¼${cc}</span>`;
 
-  if (!list.length) { document.getElementById('trip-modal-list').innerHTML = '<div class="empty-state">尚無報名</div>'; return; }
+  if (!list.length) { document.getElementById('trip-modal-list').innerHTML = '<div class="empty-state">å°ç¡å ±å</div>'; return; }
   document.getElementById('trip-modal-list').innerHTML = list.map((m,i) => `
     <div class="member-row">
       <div class="member-avatar">${(m.name||'?').charAt(0)}</div>
       <div class="member-info">
         <div class="member-name">${esc(m.name)}</div>
         <div class="member-phone">${esc(m.phone||'')}</div>
-        <div class="member-date">報名於 ${fmtDT(m.at)}</div>
+        <div class="member-date">å ±åæ¼ ${fmtDT(m.at)}</div>
       </div>
-      <span class="plan-badge">${m.plan==='couple'?'雙人':'單人'}</span>
+      <span class="plan-badge">${m.plan==='couple'?'éäºº':'å®äºº'}</span>
       <span style="font-size:12px;color:#7FBBCC">#${i+1}</span>
     </div>`).join('');
 }
@@ -566,7 +580,7 @@ async function openTripModal(tripId, title) {
 function closeTripModal() { document.getElementById('trip-modal').classList.remove('show'); }
 function closeTripModalOverlay(e) { if (e.target===document.getElementById('trip-modal')) closeTripModal(); }
 
-// ── 編輯活動 ──────────────────────────────────────
+// ââ ç·¨è¼¯æ´»å ââââââââââââââââââââââââââââââââââââââ
 function openEditModal(id) {
   const s = allSessions.find(x=>x.id===id);
   if (!s) return;
@@ -600,8 +614,8 @@ async function saveEdit() {
     certMaxSpots: certMax,
     active:       document.getElementById('ef-active').checked,
   });
-  if (res.ok) { toast('已儲存'); closeEditModal(); loadSessions(); }
-  else toast(res.error || '儲存失敗', true);
+  if (res.ok) { toast('å·²å²å­'); closeEditModal(); loadSessions(); }
+  else toast(res.error || 'å²å­å¤±æ', true);
 }
 
 function closeEditModal(e) {
@@ -609,14 +623,14 @@ function closeEditModal(e) {
     document.getElementById('edit-modal').classList.remove('show');
 }
 
-// ── 學員名單 ──────────────────────────────────────
+// ââ å­¸å¡åå® ââââââââââââââââââââââââââââââââââââââ
 async function loadMembers() {
   const el = document.getElementById('members-list');
-  el.innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>載入中…</div>';
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>è¼å¥ä¸­â¦</div>';
   const res = await api({ action: 'allSessions', password: pwd });
   if (!res.ok) { el.innerHTML = `<div style="color:#E05050">${res.error}</div>`; return; }
   const sessions = res.sessions.slice(0, 3);
-  if (!sessions.length) { el.innerHTML = '<div class="empty-state">尚無活動</div>'; return; }
+  if (!sessions.length) { el.innerHTML = '<div class="empty-state">å°ç¡æ´»å</div>'; return; }
   let html = '';
   for (const s of sessions) {
     const lr = await api({ action: 'getEnrollList', password: pwd, sessionId: s.id });
@@ -629,22 +643,51 @@ async function loadMembers() {
         ${m.certLevel?`<span class="cert-badge">${certName(m.certLevel)}</span>`:''}
       </div>`).join('');
   }
-  el.innerHTML = html || '<div class="empty-state">近期活動無報名學員</div>';
+  el.innerHTML = html || '<div class="empty-state">è¿ææ´»åç¡å ±åå­¸å¡</div>';
 }
 
-// ── 工具 ──────────────────────────────────────────
+// ââ æ¶æ¬¾ç¢ºèª ââââââââââââââââââââââââââââââââââââââ
+function copyUID(uid) {
+  if (!uid) return;
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = uid; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    toast('LINE UID å·²è¤è£½');
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(uid).then(() => toast('LINE UID å·²è¤è£½')).catch(fallback);
+  } else { fallback(); }
+}
+
+async function confirmPaymentAction(enrollId, elemId, checkbox) {
+  if (!enrollId) { toast('ç¡æ³åå¾å ±åID', true); checkbox.checked = false; return; }
+  checkbox.disabled = true;
+  const res = await api({ action: 'confirmPayment', password: pwd, enrollId });
+  if (res.ok) {
+    toast('â å·²æ¨è¨å·²æ¶æ¬¾');
+    const el = document.getElementById('pay-status-'+elemId);
+    if (el) el.innerHTML = '<span style="color:#00C9B1;font-size:12px;font-weight:700">â å·²æ¶æ¬¾</span>';
+  } else {
+    toast(res.error || 'æ´æ°å¤±æ', true);
+    checkbox.disabled = false;
+    checkbox.checked = false;
+  }
+}
+
+// ââ å·¥å· ââââââââââââââââââââââââââââââââââââââââââ
 async function api(data) {
   try {
     const r = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(data) });
     return r.json();
-  } catch(e) { return { ok: false, error: '網路錯誤' }; }
+  } catch(e) { return { ok: false, error: 'ç¶²è·¯é¯èª¤' }; }
 }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function certName(c) { return {無證:'無 證',A1:'A1',A2pool:'A2 Pool',A2:'A2'}[c] || c; }
+function certName(c) { return {ç¡è­:'ç¡ è­',A1:'A1',A2pool:'A2 Pool',A2:'A2'}[c]||c; }
 function fmtDT(val) {
-  if (!val) return '—';
+  if (!val) return 'â';
   const s = String(val);
-  if (s.includes('1899')) return '—';
+  if (s.includes('1899')) return 'â';
   return s.replace('T',' ').replace(/\.\d+Z?$/,'').slice(0,16);
 }
 
@@ -659,4 +702,3 @@ function toast(msg, isError) {
 </script>
 </body>
 </html>
-
