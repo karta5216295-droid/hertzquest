@@ -40,6 +40,7 @@ function dispatch(d) {
     initMember, getSessions, enrollSession, myEnrollments, cancelEnroll,
     coachLogin, allSessions, createSession, updateSession, deleteSession,
     getEnrollList, notifyStudents, confirmPayment, getMembers, deleteMember,
+    getAnnouncements, createAnnouncement, deleteAnnouncement,
   };
   const fn = map[d.action];
   if (!fn) return {ok:false,error:'Unknown action: '+d.action};
@@ -318,6 +319,71 @@ function sendLine(toUid, text) {
       muteHttpExceptions:true,
     });
   } catch(e) { console.error('LINE error:',e); }
+}
+
+// ── 公告 API ─────────────────────────────────────────────────
+function getAnnouncements() {
+  try {
+    const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    let sheet;
+    try { sheet = ss.getSheetByName('Announcements'); } catch(e) { sheet = null; }
+    if (!sheet) {
+      sheet = ss.insertSheet('Announcements');
+      sheet.getRange(1,1,1,3).setValues([['id','text','active']]);
+      return { ok:true, announcements:[] };
+    }
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idCol = headers.indexOf('id');
+    const textCol = headers.indexOf('text');
+    const activeCol = headers.indexOf('active');
+    const announcements = [];
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][activeCol] === true || data[i][activeCol] === 'TRUE' || data[i][activeCol] === 1) {
+        announcements.push({ id: data[i][idCol], text: data[i][textCol] });
+      }
+    }
+    return { ok:true, announcements };
+  } catch(e) {
+    return { ok:false, error: e.message };
+  }
+}
+
+function createAnnouncement({password, text, active}) {
+  if (!auth(password)) return noAuth();
+  if (!text) return {ok:false, error:'公告內容不可為空'};
+  try {
+    const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    let sheet = ss.getSheetByName('Announcements');
+    if (!sheet) {
+      sheet = ss.insertSheet('Announcements');
+      sheet.getRange(1,1,1,3).setValues([['id','text','active']]);
+    }
+    const id = 'A' + Date.now();
+    sheet.appendRow([id, text, active !== false ? true : false]);
+    return {ok:true, id, message:'公告已建立'};
+  } catch(e) {
+    return {ok:false, error: e.message};
+  }
+}
+
+function deleteAnnouncement({password, announcementId}) {
+  if (!auth(password)) return noAuth();
+  try {
+    const sheet = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('Announcements');
+    if (!sheet) return {ok:false, error:'找不到公告表'};
+    const data = sheet.getDataRange().getValues();
+    const idCol = data[0].indexOf('id');
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idCol] === announcementId) {
+        sheet.deleteRow(i + 1);
+        return {ok:true};
+      }
+    }
+    return {ok:false, error:'找不到此公告'};
+  } catch(e) {
+    return {ok:false, error: e.message};
+  }
 }
 
 // 第一次執行：初始化 Sheets

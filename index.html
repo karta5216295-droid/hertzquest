@@ -191,6 +191,16 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .empty svg{width:36px;height:36px;opacity:.25;}
 .empty p{line-height:1.75;}
 
+/* ── Ticker ── */
+.ticker-wrap{overflow:hidden;background:rgba(0,201,177,.06);border-bottom:1px solid rgba(0,201,177,.15);height:0;transition:height .3s;flex-shrink:0;}
+.ticker-wrap.active{height:30px;}
+.ticker-inner{display:flex;align-items:center;height:30px;white-space:nowrap;}
+.ticker-label{font-size:9px;font-weight:900;color:var(--teal);letter-spacing:.5px;padding:0 10px;flex-shrink:0;border-right:1px solid rgba(0,201,177,.2);}
+.ticker-track{display:inline-block;animation:ticker 20s linear infinite;padding-left:100%;}
+.ticker-track:hover{animation-play-state:paused;}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+.ticker-text{font-size:11px;color:var(--gold);font-weight:600;letter-spacing:.2px;}
+
 /* ── Profile ── */
 .profile-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 20px;text-align:center;margin-top:8px;}
 .profile-avatar-big{width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,rgba(0,201,177,.18),rgba(0,80,160,.18));border:2px solid rgba(0,201,177,.32);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:24px;font-weight:900;color:var(--teal);}
@@ -255,6 +265,17 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <div class="topbar-user">
       <div class="username" id="top-name">—</div>
       <div class="avatar-text" id="top-avatar-text"></div>
+    </div>
+  </div>
+
+  <div class="ticker-wrap" id="ticker-wrap">
+    <div class="ticker-inner">
+      <div class="ticker-label">📢 公告</div>
+      <div style="overflow:hidden;flex:1">
+        <div class="ticker-track" id="ticker-track">
+          <span class="ticker-text" id="ticker-text"></span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -386,6 +407,7 @@ function showApp() {
   document.getElementById('top-name').textContent = n;
   document.getElementById('top-avatar-text').textContent = n[0] || '?';
   switchTab('sessions');
+  loadTicker();
 }
 
 // ── Tabs ──────────────────────────────────────────
@@ -841,6 +863,18 @@ async function cancelTripEnroll(tripId) {
     if (t) { t.enrolled = false; t.myPlan = null; t.spotsLeft = Number(t.spotsLeft)+1; }
     closeModal(); toast('已取消旅行報名', 'success'); renderTab(currentTab);
   } else toast(res.error||'取消失敗', 'error');
+}
+
+// ── Ticker ────────────────────────────────────────
+async function loadTicker() {
+  const res = await api({ action:'getAnnouncements' });
+  if (!res.ok || !res.announcements?.length) return;
+  const text = res.announcements.map(a => a.text).join('　｜　');
+  document.getElementById('ticker-text').textContent = text;
+  document.getElementById('ticker-wrap').classList.add('active');
+  // 依文字長度動態調整速度（每字約 0.3s）
+  const speed = Math.max(12, text.length * 0.3);
+  document.getElementById('ticker-track').style.animationDuration = speed + 's';
 }
 
 // ── Utils ─────────────────────────────────────────
