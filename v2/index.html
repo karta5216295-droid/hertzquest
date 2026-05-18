@@ -2,6 +2,9 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Hertz 團練</title>
 <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
@@ -344,7 +347,13 @@ async function init() {
     if (!res.ok) { showSplashError(res.error); return; }
     if (res.isNew && !res.justRegistered) { showRegister(); }
     else { member = res.member; showApp(); }
-  } catch(e) { showSplashError(e.message || '載入失敗，請重新開啟'); }
+  } catch(e) {
+    // Token 過期或未登入 → 自動重新登入
+    if (e.message && (e.message.includes('access token') || e.message.includes('token expired') || e.message.includes('INVALID_ARGUMENT'))) {
+      liff.login(); return;
+    }
+    showSplashError(e.message || '載入失敗，請重新開啟');
+  }
 }
 
 function showSplashError(msg) {
