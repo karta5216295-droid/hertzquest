@@ -254,6 +254,37 @@ function getTripEnrollList(data) {
   } catch(e) { return { ok: false, error: e.message }; }
 }
 
+// 刪除旅行（同步刪除所有報名紀錄）
+function deleteTrip(data) {
+  try {
+    var p = checkPassword(data.password);
+    if (!p.ok) return p;
+    var tripId = data.tripId;
+    if (!tripId) return { ok: false, error: '參數不完整' };
+    initTripSheets();
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // 刪除旅行列
+    var sh = ss.getSheetByName('Trips');
+    var rows = sh.getDataRange().getValues();
+    var found = false;
+    for (var i = rows.length - 1; i >= 1; i--) {
+      if (String(rows[i][0]) === String(tripId)) { sh.deleteRow(i + 1); found = true; break; }
+    }
+    if (!found) return { ok: false, error: '找不到旅行' };
+
+    // 刪除相關報名紀錄
+    var esh = ss.getSheetByName('TripEnrollments');
+    if (esh) {
+      var erows = esh.getDataRange().getValues();
+      for (var j = erows.length - 1; j >= 1; j--) {
+        if (String(erows[j][1]) === String(tripId)) esh.deleteRow(j + 1);
+      }
+    }
+    return { ok: true };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
 // 更新旅行（開關狀態等）
 function updateTrip(data) {
   try {

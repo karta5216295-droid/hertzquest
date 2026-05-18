@@ -367,6 +367,7 @@ function renderSessions() {
         <button class="btn btn-ghost btn-sm" onclick="openEnrollModal('${s.id}','${esc(s.title)}')">查看名單</button>
         <button class="btn btn-ghost btn-sm" onclick="openEditModal('${s.id}')">編輯</button>
         <button class="btn btn-danger btn-sm" onclick="toggleActive('${s.id}',${s.active})">${s.active?'關閉報名':'開放報名'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSessionAction('${s.id}','${esc(s.title)}')">🗑 刪除</button>
       </div>
     </div>`;
   }).join('');
@@ -446,6 +447,7 @@ function renderTrips() {
       <div class="session-actions">
         <button class="btn btn-ghost btn-sm" onclick="openTripModal('${t.id}','${esc(t.title)}')">查看名單</button>
         <button class="btn btn-danger btn-sm" onclick="toggleTripActive('${t.id}',${isActive})">${isActive?'關閉':'開放'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteTripAction('${t.id}','${esc(t.title)}')">🗑 刪除</button>
       </div>
     </div>`;
   }).join('');
@@ -627,23 +629,42 @@ function closeEditModal(e) {
 async function loadMembers() {
   const el = document.getElementById('members-list');
   el.innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>載入中…</div>';
-  const res = await api({ action: 'allSessions', password: pwd });
+  const res = await api({ action: 'getMembers', password: pwd });
   if (!res.ok) { el.innerHTML = `<div style="color:#E05050">${res.error}</div>`; return; }
-  const sessions = res.sessions.slice(0, 3);
-  if (!sessions.length) { el.innerHTML = '<div class="empty-state">尚無活動</div>'; return; }
-  let html = '';
-  for (const s of sessions) {
-    const lr = await api({ action: 'getEnrollList', password: pwd, sessionId: s.id });
-    if (!lr.ok || !lr.list.length) continue;
-    html += `<div style="font-size:13px;font-weight:700;color:#00C9B1;margin:16px 0 8px">${esc(s.title)} (${s.date})</div>`;
-    html += lr.list.map(m => `
-      <div class="member-row">
-        <div class="member-avatar">${(m.name||'?').charAt(0)}</div>
-        <div class="member-info"><div class="member-name">${esc(m.name)}</div><div class="member-phone">${esc(m.phone||'')}</div></div>
-        ${m.certLevel?`<span class="cert-badge">${certName(m.certLevel)}</span>`:''}
-      </div>`).join('');
-  }
-  el.innerHTML = html || '<div class="empty-state">近期活動無報名學員</div>';
+  const members = res.members || [];
+  if (!members.length) { el.innerHTML = '<div class="empty-state">尚無學員</div>'; return; }
+  document.getElementById('members-list').innerHTML = members.map(m => `
+    <div class="member-row">
+      <div class="member-avatar">${(m.realName||'?').charAt(0)}</div>
+      <div class="member-info">
+        <div class="member-name">${esc(m.realName)}</div>
+        <div class="member-phone">${esc(m.phone||'')}</div>
+        <div class="member-date">${esc(m.displayName||'')} · 加入 ${m.joinedAt||'—'}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteMemberAction('${esc(m.id)}','${esc(m.realName)}')">🗑 刪除</button>
+    </div>`).join('');
+}
+
+// ── 刪除操作 ──────────────────────────────────────
+async function deleteSessionAction(id, title) {
+  if (!confirm(`確認刪除活動「${title}」？\n此操作無法復原。`)) return;
+  const res = await api({ action: 'deleteSession', password: pwd, sessionId: id });
+  if (res.ok) { toast('活動已刪除'); loadSessions(); }
+  else toast(res.error || '刪除失敗', true);
+}
+
+async function deleteTripAction(id, title) {
+  if (!confirm(`確認刪除旅行「${title}」？\n相關報名紀錄也會一併刪除，此操作無法復原。`)) return;
+  const res = await api({ action: 'deleteTrip', password: pwd, tripId: id });
+  if (res.ok) { toast('旅行已刪除'); loadTrips(); }
+  else toast(res.error || '刪除失敗', true);
+}
+
+async function deleteMemberAction(id, name) {
+  if (!confirm(`確認刪除學員「${name}」？\n此操作無法復原。`)) return;
+  const res = await api({ action: 'deleteMember', password: pwd, memberId: id });
+  if (res.ok) { toast('學員已刪除'); loadMembers(); }
+  else toast(res.error || '刪除失敗', true);
 }
 
 // ── 收款確認 ──────────────────────────────────────

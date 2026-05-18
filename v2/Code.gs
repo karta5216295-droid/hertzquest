@@ -39,7 +39,7 @@ function dispatch(d) {
   const map = {
     initMember, getSessions, enrollSession, myEnrollments, cancelEnroll,
     coachLogin, allSessions, createSession, updateSession, deleteSession,
-    getEnrollList, notifyStudents, confirmPayment,
+    getEnrollList, notifyStudents, confirmPayment, getMembers, deleteMember,
   };
   const fn = map[d.action];
   if (!fn) return {ok:false,error:'Unknown action: '+d.action};
@@ -214,7 +214,37 @@ function updateSession({password, sessionId, ...fields}) {
 
 function deleteSession({password, sessionId}) {
   if (!auth(password)) return noAuth();
-  return updateSession({password, sessionId, active:false});
+  const sh = sh_('Sessions');
+  const rows = sh.getDataRange().getValues();
+  for (let i=1;i<rows.length;i++) {
+    if (rows[i][C.S.ID-1]===sessionId) { sh.deleteRow(i+1); return {ok:true}; }
+  }
+  return {ok:false,error:'找不到活動'};
+}
+
+function getMembers({password}) {
+  if (!auth(password)) return noAuth();
+  const rows = sh_('Members').getDataRange().getValues();
+  const members = rows.slice(1).filter(r=>r[0]).map(r=>({
+    id:         r[C.M.ID-1],
+    lineUid:    r[C.M.UID-1],
+    realName:   r[C.M.NAME-1],
+    phone:      r[C.M.PHONE-1],
+    displayName:r[C.M.DISPLAY-1],
+    status:     r[C.M.STATUS-1],
+    joinedAt:   String(r[C.M.AT-1]).slice(0,10),
+  }));
+  return {ok:true, members};
+}
+
+function deleteMember({password, memberId}) {
+  if (!auth(password)) return noAuth();
+  const sh = sh_('Members');
+  const rows = sh.getDataRange().getValues();
+  for (let i=1;i<rows.length;i++) {
+    if (rows[i][C.M.ID-1]===memberId) { sh.deleteRow(i+1); return {ok:true}; }
+  }
+  return {ok:false,error:'找不到學員'};
 }
 
 function getEnrollList({password, sessionId}) {
