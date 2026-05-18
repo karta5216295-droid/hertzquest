@@ -265,14 +265,17 @@ function getEnrollList({password, sessionId}) {
   return {ok:true, list};
 }
 
-function confirmPayment({password, enrollId}) {
+function confirmPayment({password, enrollId, lineUid, sessionId}) {
   if (!auth(password)) return noAuth();
   const sh = sh_('Enrollments');
   const rows = sh.getDataRange().getValues();
   for (let i=1;i<rows.length;i++) {
-    if (rows[i][C.E.ID-1]===enrollId) {
+    const row = rows[i];
+    const matchById = enrollId && row[C.E.ID-1]===enrollId;
+    const matchByUidSid = !enrollId && lineUid && sessionId &&
+      row[C.E.UID-1]===lineUid && row[C.E.SID-1]===sessionId && row[C.E.STATUS-1]==='confirmed';
+    if (matchById || matchByUidSid) {
       sh.getRange(i+1, C.E.PAYMENT).setValue('confirmed');
-      sh.getRange(i+1, C.E.STATUS).setValue('confirmed');
       return {ok:true};
     }
   }

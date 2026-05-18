@@ -140,6 +140,7 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
     <button class="tab-btn" onclick="switchTab('trips')"              id="tab-trips">🤿 旅行</button>
     <button class="tab-btn" onclick="switchTab('create-trip')"        id="tab-create-trip">新增旅行</button>
     <button class="tab-btn" onclick="switchTab('members')"            id="tab-members">學員名單</button>
+    <button class="tab-btn" onclick="switchTab('announcements')"      id="tab-announcements">📢 公告</button>
   </div>
 
   <!-- 活動列表 -->
@@ -203,6 +204,26 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
     <div class="card">
       <div class="card-title">已登記學員</div>
       <div id="members-list"></div>
+    </div>
+  </div>
+
+  <!-- 公告管理 -->
+  <div id="panel-announcements" class="tab-content">
+    <div class="card">
+      <div class="card-title">新增公告</div>
+      <div class="form-group">
+        <label>公告內容 *</label>
+        <textarea id="ann-text" placeholder="輸入公告文字…" style="min-height:80px"></textarea>
+      </div>
+      <div class="toggle-row" style="margin-bottom:14px">
+        <label>立即顯示（active）</label>
+        <label class="toggle"><input type="checkbox" id="ann-active" checked><span class="toggle-slider"></span></label>
+      </div>
+      <button class="btn btn-primary" id="ann-create-btn" onclick="createAnnouncementAction()">新增公告</button>
+    </div>
+    <div class="card">
+      <div class="card-title">公告列表</div>
+      <div id="announcements-list"></div>
     </div>
   </div>
 </div>
@@ -306,13 +327,14 @@ function logout() {
 }
 
 function switchTab(id) {
-  ['sessions','create','trips','create-trip','members'].forEach(t => {
+  ['sessions','create','trips','create-trip','members','announcements'].forEach(t => {
     document.getElementById('tab-'+t).classList.toggle('active', t===id);
     document.getElementById('panel-'+t).classList.toggle('active', t===id);
   });
-  if (id === 'sessions')   loadSessions();
-  if (id === 'trips')      loadTrips();
-  if (id === 'members')    loadMembers();
+  if (id === 'sessions')      loadSessions();
+  if (id === 'trips')         loadTrips();
+  if (id === 'members')       loadMembers();
+  if (id === 'announcements') loadAnnouncements();
 }
 
 // ── 活動列表 ──────────────────────────────────────
@@ -518,7 +540,7 @@ async function openEnrollModal(sessionId, title) {
       ? `<span style="color:#00C9B1;font-size:12px;font-weight:700">✓ 已收款</span>`
       : `<span style="color:#FFB030;font-size:11px">待收款${m.transferCode?' · 末5碼 '+esc(m.transferCode):''}</span>
          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-top:3px">
-           <input type="checkbox" id="pay-cb-${eid}" onchange="confirmPaymentAction('${esc(m.id||'')}','${eid}',this)" style="width:14px;height:14px;cursor:pointer;accent-color:#00C9B1">
+           <input type="checkbox" id="pay-cb-${eid}" onchange="confirmPaymentAction('${esc(m.id||'')}','${eid}',this,'${esc(m.lineUid||'')}',currentSessionId)" style="width:14px;height:14px;cursor:pointer;accent-color:#00C9B1">
            <span style="font-size:11px;color:#7FBBCC">已收款 ☐</span>
          </label>`;
     return `
@@ -528,7 +550,6 @@ async function openEnrollModal(sessionId, title) {
         <div class="member-name">${esc(m.name)}</div>
         <div class="member-phone">${esc(m.phone||'')}</div>
         <div class="member-date">報名於 ${fmtDT(m.at)}</div>
-        ${m.lineUid?`<div style="font-size:11px;color:#7FBBCC;cursor:pointer;margin-top:2px;user-select:all" onclick="copyUID('${esc(m.lineUid)}')">LINE: ${esc(m.lineUid)}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
         ${m.certLevel?`<span class="cert-badge">${certName(m.certLevel)}</span>`:''}
@@ -681,10 +702,9 @@ function copyUID(uid) {
   } else { fallback(); }
 }
 
-async function confirmPaymentAction(enrollId, elemId, checkbox) {
-  if (!enrollId) { toast('無法取得報名ID', true); checkbox.checked = false; return; }
+async function confirmPaymentAction(enrollId, elemId, checkbox, lineUid, sessionId) {
   checkbox.disabled = true;
-  const res = await api({ action: 'confirmPayment', password: pwd, enrollId });
+  const res = await api({ action: 'confirmPayment', password: pwd, enrollId, lineUid, sessionId });
   if (res.ok) {
     toast('✅ 已標記已收款');
     const el = document.getElementById('pay-status-'+elemId);
@@ -694,6 +714,48 @@ async function confirmPaymentAction(enrollId, elemId, checkbox) {
     checkbox.disabled = false;
     checkbox.checked = false;
   }
+}
+
+// ── 公告管理 ──────────────────────────────────────
+async function loadAnnouncements() {
+  const el = document.getElementById('announcements-list');
+  el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
+  const res = await api({ action: 'getAnnouncements' });
+  if (!res.ok) { el.innerHTML = `<div class="empty-state" style="color:#E05050">${res.error}</div>`; return; }
+  const list = res.announcements || [];
+  if (!list.length) { el.innerHTML = '<div class="empty-state">目前沒有公告</div>'; return; }
+  el.innerHTML = list.map(a => `
+    <div class="member-row" style="align-items:flex-start;gap:10px">
+      <div style="flex:1">
+        <div style="font-size:14px;color:#F0F0FF;line-height:1.6">${esc(a.text)}</div>
+        <div style="font-size:11px;color:#3A5070;margin-top:4px">ID: ${esc(a.id)}</div>
+      </div>
+      <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);color:#00C9B1;white-space:nowrap;flex-shrink:0">顯示中</span>
+      <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="deleteAnnouncementAction('${esc(a.id)}')">🗑 刪除</button>
+    </div>`).join('');
+}
+
+async function createAnnouncementAction() {
+  const text = document.getElementById('ann-text').value.trim();
+  if (!text) { toast('請輸入公告內容', true); return; }
+  const active = document.getElementById('ann-active').checked;
+  const btn = document.getElementById('ann-create-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>建立中…';
+  const res = await api({ action: 'createAnnouncement', password: pwd, text, active });
+  btn.disabled = false; btn.textContent = '新增公告';
+  if (res.ok) {
+    toast(res.message || '公告已建立');
+    document.getElementById('ann-text').value = '';
+    document.getElementById('ann-active').checked = true;
+    loadAnnouncements();
+  } else toast(res.error || '建立失敗', true);
+}
+
+async function deleteAnnouncementAction(id) {
+  if (!confirm('確認刪除此公告？')) return;
+  const res = await api({ action: 'deleteAnnouncement', password: pwd, announcementId: id });
+  if (res.ok) { toast('公告已刪除'); loadAnnouncements(); }
+  else toast(res.error || '刪除失敗', true);
 }
 
 // ── 工具 ──────────────────────────────────────────
