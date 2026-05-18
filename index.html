@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>HertzQuest åç·´</title>
+<script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+<style>
+:root {
+  --bg:#0A1628; --card:#0D2240; --border:#1E4060;
+  --teal:#00C9B1; --gold:#FFB030; --red:#E05050;
+  --t1:#F0F0FF; --t2:#A0C4D8; --t3:#7FBBCC;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overscroll-behavior:none;}
+
+/* ââ Layout ââ */
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+.topbar{flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.topbar-title{font-size:17px;font-weight:900;color:var(--teal);}
+.topbar-user{display:flex;align-items:center;gap:8px;}
+.avatar-text{width:32px;height:32px;border-radius:50%;background:rgba(0,201,177,.2);border:1.5px solid var(--teal);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--teal);}
+.username{font-size:13px;font-weight:700;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.tabbar{flex-shrink:0;background:var(--card);border-top:1px solid var(--border);display:flex;}
+.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0 8px;gap:3px;border:none;background:transparent;cursor:pointer;}
+.tab-icon{font-size:20px;opacity:.5;}
+.tab-label{font-size:10px;color:var(--t3);font-weight:700;opacity:.5;}
+.tab-btn.active .tab-icon,.tab-btn.active .tab-label{opacity:1;}
+.tab-btn.active .tab-label{color:var(--teal);}
+
+/* ââ Splash / Register ââ */
+#splash{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:999;}
+.spin{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#register-screen{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;}
+.reg-card{background:var(--card);border-radius:24px;border:1px solid var(--border);padding:32px 24px;width:100%;max-width:400px;}
+.reg-card .logo{text-align:center;margin-bottom:24px;}
+.reg-card .logo h1{font-size:24px;font-weight:900;color:var(--teal);}
+.reg-card .logo p{font-size:13px;color:var(--t3);margin-top:6px;}
+.profile-strip{display:flex;align-items:center;gap:12px;background:#112840;border-radius:12px;padding:12px 14px;margin-bottom:20px;}
+.profile-strip img{width:44px;height:44px;border-radius:50%;}
+.profile-strip .pn{font-weight:700;font-size:15px;}
+.profile-strip .ps{font-size:11px;color:var(--t3);}
+
+/* ââ Forms ââ */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px;}
+.field input,.field textarea,.field select{width:100%;background:#112840;border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--t1);font-size:15px;outline:none;font-family:inherit;transition:border-color .2s;}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--teal);}
+.field textarea{height:80px;resize:none;}
+.field select option{background:#112840;}
+
+/* ââ Buttons ââ */
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;transition:opacity .2s;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-teal{background:var(--teal);color:#0A1628;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--t3);}
+.btn-red{background:transparent;border:1px solid var(--red);color:var(--red);}
+.btn-sm{padding:7px 14px;font-size:12px;font-weight:700;border-radius:10px;border:1px solid;cursor:pointer;background:transparent;}
+
+/* ââ Session cards ââ */
+.section-pad{padding:12px;}
+.section-title{font-size:13px;font-weight:700;color:var(--t3);margin-bottom:10px;}
+.session-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;}
+.session-card:active{border-color:var(--teal);}
+.session-card.enrolled{border-color:rgba(0,201,177,.35);}
+.sc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.sc-title{font-size:15px;font-weight:800;line-height:1.3;}
+.enrolled-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:5px;}
+.sc-meta{font-size:12px;color:var(--t3);margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+.sc-row{display:flex;align-items:center;gap:6px;}
+.sc-footer{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
+.spots-badge{font-size:12px;font-weight:700;}
+.spots-ok{color:var(--teal);}
+.spots-few{color:var(--gold);}
+.spots-full{color:var(--red);}
+.coach-chip{font-size:11px;color:var(--t2);background:#112840;border-radius:20px;padding:3px 10px;}
+.price-chip{font-size:11px;font-weight:700;color:var(--gold);}
+
+/* ââ Cert spots row ââ */
+.cert-spots-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.cert-spot-box{flex:1;min-width:80px;background:#112840;border:1px solid var(--border);border-radius:10px;padding:6px 10px;text-align:center;}
+.cert-spot-box .csb-label{font-size:10px;color:var(--t3);margin-bottom:2px;}
+.cert-spot-box .csb-num{font-size:13px;font-weight:700;}
+.csb-ok{color:var(--teal);}
+.csb-full{color:var(--red);}
+
+/* ââ Trip cards ââ */
+.trip-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;}
+.trip-card:active{border-color:var(--teal);}
+.trip-card.enrolled{border-color:rgba(0,201,177,.35);}
+.trip-country{font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.trip-title{font-size:16px;font-weight:800;line-height:1.3;margin-bottom:8px;}
+.trip-dates{font-size:12px;color:var(--t3);margin-bottom:8px;}
+.trip-price-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+.price-tag{font-size:11px;font-weight:700;background:#112840;border:1px solid var(--border);border-radius:8px;padding:4px 10px;}
+.price-tag .pt-label{color:var(--t3);margin-right:4px;}
+.price-tag .pt-amt{color:var(--gold);}
+.trip-footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
+.trip-no-flight{font-size:10px;color:#5A7A90;}
+
+/* ââ Select grids (cert / plan) ââ */
+.select-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
+.select-btn{padding:12px 8px;border-radius:12px;border:2px solid var(--border);background:transparent;color:var(--t1);font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:.2s;}
+.select-btn:hover{border-color:var(--teal);}
+.select-btn.selected{border-color:var(--teal);background:rgba(0,201,177,.1);color:var(--teal);}
+.select-btn:disabled{opacity:.35;cursor:not-allowed;}
+.select-btn .sb-name{font-size:13px;font-weight:900;display:block;margin-bottom:3px;}
+.select-btn .sb-sub{font-size:11px;color:var(--t3);display:block;}
+.select-btn.selected .sb-sub{color:var(--teal);}
+.select-btn:disabled .sb-sub{color:var(--red)!important;}
+
+/* ââ Modal ââ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;}
+.modal-sheet{background:var(--bg);border-radius:24px 24px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding:8px 0 32px;animation:slideUp .25s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+.modal-inner{padding:0 20px;}
+.modal-title{font-size:20px;font-weight:900;margin-bottom:8px;}
+.modal-section{margin-top:18px;}
+.modal-section h4{font-size:12px;color:var(--t3);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;}
+.detail-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;font-size:14px;}
+.detail-icon{font-size:18px;width:24px;text-align:center;flex-shrink:0;}
+.detail-text{color:var(--t2);line-height:1.6;}
+.meeting-box{background:#0D2240;border:1px solid var(--teal);border-radius:12px;padding:14px 16px;margin-top:6px;}
+.meeting-box .label{font-size:11px;color:var(--teal);font-weight:700;margin-bottom:4px;}
+.meeting-box .value{font-size:15px;font-weight:700;line-height:1.4;}
+.desc-box{background:#112840;border-radius:12px;padding:14px;font-size:14px;color:var(--t2);line-height:1.7;white-space:pre-wrap;}
+.modal-actions{margin-top:24px;display:flex;flex-direction:column;gap:10px;}
+
+/* ââ Toast / Empty ââ */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1E3A5F;border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:14px;z-index:500;white-space:nowrap;animation:fadeInOut 2.8s ease forwards;}
+.toast.success{border-color:var(--teal);color:var(--teal);}
+.toast.error{border-color:var(--red);color:var(--red);}
+@keyframes fadeInOut{0%{opacity:0;transform:translateX(-50%) translateY(10px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}75%{opacity:1}100%{opacity:0}}
+.empty{text-align:center;padding:60px 20px;color:var(--t3);font-size:14px;}
+.empty .e-icon{font-size:48px;margin-bottom:12px;}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="spin"></div>
+  <p>æ­£å¨é£ç· LINEâ¦</p>
+</div>
+
+<div id="register-screen" style="display:none">
+  <div class="reg-card">
+    <div class="logo"><h1>HertzQuest</h1><p>æ­¡è¿ï¼è«å¡«å¯«è³æå®æå­¸å¡ç»è¨</p></div>
+    <div class="profile-strip">
+      <img id="reg-avatar" src="" alt="">
+      <div><div class="pn" id="reg-display">â</div><div class="ps">LINE å¸³èå·²é£çµ</div></div>
+    </div>
+    <div class="field"><label>çå¯¦å§å *</label><input id="reg-name" placeholder="è«è¼¸å¥çå¯¦å§å"></div>
+    <div class="field"><label>è¯çµ¡é»è©± *</label><input id="reg-phone" type="tel" placeholder="0912-345-678"></div>
+    <button class="btn btn-teal" id="reg-btn" onclick="submitRegister()">å®æç»è¨ï¼éå§å ±å</button>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="topbar-title">HertzQuest</div>
+    <div class="topbar-user">
+      <div class="username" id="top-name">â</div>
+      <div class="avatar-text" id="top-avatar-text"></div>
+    </div>
+  </div>
+  <div class="content" id="main-content"></div>
+  <div class="tabbar">
+    <button class="tab-btn active" id="tab-sessions" onclick="switchTab('sessions')">
+      <span class="tab-icon">ð</span><span class="tab-label">å³å°åç·´</span>
+    </button>
+    <button class="tab-btn" id="tab-trips" onclick="switchTab('trips')">
+      <span class="tab-icon">ð¤¿</span><span class="tab-label">æ½æ°´æè¡</span>
+    </button>
+    <button class="tab-btn" id="tab-mine" onclick="switchTab('mine')">
+      <span class="tab-icon">ð</span><span class="tab-label">æçå ±å</span>
+    </button>
+    <button class="tab-btn" id="tab-profile" onclick="switchTab('profile')">
+      <span class="tab-icon">ð¤</span><span class="tab-label">åäººè³æ</span>
+    </button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detail-modal" style="display:none" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-inner" id="modal-inner"></div>
+  </div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzBy8q-19g_uRMbaEKRULHcd9xdp0k9Vv3RN0-5xV76cAGHEybC7Y_R0yYwpfS7G1SP1w/exec';
+const LIFF_ID = '2010027559-58ppHoAr';
+const MAX_UNCERT = 4; // ç¡è­åé¡ä¸é
+
+let profile = null, member = null;
+let sessions = [], trips = [];
+let currentTab = 'sessions';
+let selectedSession = null, selectedTrip = null;
+let selectedCert = null, selectedPlan = null;
+
+// ââ Init ââââââââââââââââââââââââââââââââââââââââââ
+async function init() {
+  try {
+    // 10 ç§è¶æä¿è­·
+    await Promise.race([
+      liff.init({ liffId: LIFF_ID }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('LIFF åå§åé¾æï¼10ç§ï¼\nLIFF ID: ' + LIFF_ID + '\nè«ç¢ºèª LINE Developer Console ç Endpoint URL æ¯å¦çºï¼\nhttps://karta5216295-droid.github.io/hertzquest/')), 10000))
+    ]);
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    profile = await liff.getProfile();
+    const res = await api({ action:'initMember', lineUid:profile.userId, displayName:profile.displayName, pictureUrl:profile.pictureUrl });
+    if (!res.ok) { showSplashError(res.error); return; }
+    if (res.isNew && !res.justRegistered) { showRegister(); }
+    else { member = res.member; showApp(); }
+  } catch(e) { showSplashError(e.message || 'è¼å¥å¤±æï¼è«éæ°éå'); }
+}
+
+function showSplashError(msg) {
+  document.getElementById('splash').innerHTML = `<p style="color:#E05050;text-align:center;padding:20px">${msg}<br><br><small>è«å¨ LINE å§éåæ­¤é é¢</small></p>`;
+}
+
+function showRegister() {
+  document.getElementById('splash').style.display = 'none';
+  document.getElementById('reg-avatar').src = profile.pictureUrl || '';
+  document.getElementById('reg-display').textContent = profile.displayName;
+  document.getElementById('register-screen').style.display = 'flex';
+}
+
+async function submitRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  if (!name || !phone) { toast('è«å¡«å¯«å§ååé»è©±', 'error'); return; }
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true; btn.textContent = 'ç»è¨ä¸­â¦';
+  const res = await api({ action:'initMember', lineUid:profile.userId, displayName:profile.displayName, pictureUrl:profile.pictureUrl, realName:name, phone });
+  if (res.ok) { member = res.member; showApp(); }
+  else { toast(res.error || 'ç»è¨å¤±æ', 'error'); btn.disabled = false; btn.textContent = 'å®æç»è¨ï¼éå§å ±å'; }
+}
+
+function showApp() {
+  document.getElementById('splash').style.display = 'none';
+  document.getElementById('register-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  const n = member?.realName || profile?.displayName || 'å­¸å¡';
+  document.getElementById('top-name').textContent = n;
+  document.getElementById('top-avatar-text').textContent = n[0] || '?';
+  switchTab('sessions');
+}
+
+// ââ Tabs ââââââââââââââââââââââââââââââââââââââââââ
+function switchTab(tab) {
+  currentTab = tab;
+  ['sessions','trips','mine','profile'].forEach(t => {
+    document.getElementById('tab-'+t)?.classList.toggle('active', t===tab);
+  });
+  renderTab(tab);
+}
+
+arync function renderTab(tab) {
+  const el = document.getElementById('main-content');
+
+  if (tab === 'sessions') {
+    el.innerHTML = '<div class="section-pad"><div class="section-title">å³å°èè¡çæ´»å</div><div id="session-list"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>';
+    const res = await api({ action:'getSessions', lineUid:profile.userId });
+    if (!res.ok) { document.getElementById('session-list').innerHTML = '<div class="empty">è¼å¥å¤±æ</div>'; return; }
+    sessions = res.sessions || [];
+    renderSessionList();
+
+  } else if (tab === 'trips') {
+    el.innerHTML = '<div class="section-pad"><div class="section-title">æ½æ°´æè¡è¡ç¨</div><div id="trip-list"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>';
+    const res = await api({ action:'getTrips', lineUid:profile.userId });
+    if (!res.ok) { document.getElementById('trip-list').innerHTML = '<div class="empty">è¼å¥å¤±æ</div>'; return; }
+    trips = res.trips || [];
+    renderTripList();
+
+  } else if (tab === 'mine') {
+    el.innerHTML = '<div class="section-pad"><div class="section-title">æçå ±åç´é</div><div id="mine-list"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>';
+    const [sr, tr] = await Promise.all([
+      api({ action:'myEnrollments', lineUid:profile.userId }),
+      api({ action:'myTripEnrollments', lineUid:profile.userId })
+    ]);
+    const listEl = document.getElementById('mine-list');
+    let html = '';
+    if (sr.ok && sr.enrollments && sr.enrollments.length) {
+      html += '<div style="font-size:12px;font-weight:700;color:var(--t3);margin:4px 0 8px">ð åç·´</div>';
+      html += sr.enrollments.map(s => mineSessionCardHTML(s)).join('');
+    }
+    if (tr.ok && tr.enrollments && tr.enrollments.length) {
+      html += '<div style="font-size:12px;font-weight:700;color:var(--t3);margin:16px 0 8px">ð¤¿ æè¡</div>';
+      html += tr.enrollments.map(t => myTripCardHTML(t)).join('');
+    }
+    listEl.innerHTML = html || '<div class="empty"><div class="e-icon">ð</div>å°ç¡å ±åç´é</div>';
+
+  } else {
+    el.innerHTML = `
+      <div class="section-pad">
+        <div style="background:var(--card);border-radius:20px;border:1px solid var(--border);padding:24px;text-align:center;margin-top:8px">
+          <div style="width:72px;height:72px;border-radius:50%;background:rgba(0,201,177,.15);border:2px solid var(--teal);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:28px;font-weight:900;color:var(--teal)">${(member?.realName||'?')[0]}</div>
+          <div style="font-size:18px;font-weight:900">${member?.realName||'â'}</div>
+          <div style="font-size:13px;color:var(--t3);margin-top:4px">${profile?.displayName||''}</div>
+          <div style="font-size:13px;color:var(--t3);margin-top:2px">${member?.phone||''}</div>
+        </div>
+      </div>`;
+  }
+}
+
+// ââ Session List ââââââââââââââââââââââââââââââââââ
+function renderSessionList() {
+  const el = document.getElementById('session-list');
+  if (!sessions.length) {
+    el.innerHTML = '<div class="empty"><div class="e-icon">ð</div>ç®åæ²æå³å°å°ä¾çæ´»å<br>è«æçºéæ³¨ï¼</div>';
+    return;
+  }
+  el.innerHTML = sessions.map(s => sessionCardHTML(s)).join('');
+}
+
+function sessionCardHTML(s) {
+  const spots = Number(s.spotsLeft);
+  const spotsClass = spots<=0?'spots-full':spots<=3?'spots-few':'spots-ok';
+  const spotsLabel = spots<=0?'åé¡å·²æ»¿':`å© ${spots} ä½`;
+  const uncertLeft = Math.max(0, MAX_UNCERT - Number(s.uncertCount||0));
+  return `
+    <div class="session-card ${s.enrolled?'enrolled':''}" onclick="openDetail('${s.id}')">
+      <div class="sc-header">
+        <div class="sc-title">${esc(s.title)}</div>
+        ${s.enrolled?'<div class="enrolled-dot"></div>':''}
+      </div>
+      <div class="sc-meta">
+        <div class="sc-row">ð ${s.date}${s.time?' Â· '+s.time:''}</div>
+        <div class="sc-row">ð ${esc(s.location||'')}</div>
+        ${s.meetingPoint?`<div class="sc-row">ðº éåï¼<strong>${esc(s.meetingPoint)}</strong></div>`:''}
+      </div>
+      <div class="cert-spots-row">
+        <div class="cert-spot-box">
+          <div class="csb-label">ç¡è­åé¡</div>
+          <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertLeft}/${MAX_UNCERT}</div>
+        </div>
+        <div class="cert-spot-box">
+          <div class="csb-label">æè­åé¡</div>
+          <div class="csb-num ${spots>0?'csb-ok':'csb-full'}">${spots>0?'éæ¾':'å·²æ»¿'}</div>
+        </div>
+      </div>
+      <div class="sc-footer">
+        <span class="spots-badge ${spotsClass}">${spotsLabel}</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${s.price?`<span class="price-chip">NT$ ${s.price}</span>`:'<span class="price-chip" style="color:var(--teal)">åè²»</span>'}
+          ${s.coach?`<span class="coach-chip">${esc(s.coach)}</span>`:''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function mineSessionCardHTML(s) {
+  const certLabel = s.certLevel ? certName(s.certLevel) : '';
+  return `
+    <div class="session-card enrolled">
+      <div class="sc-header"><div class="sc-title">${esc(s.title)}</div></div>
+      <div class="sc-meta">
+        <div class="sc-row">ð ${s.date}${s.time?' Â· '+s.time:''}</div>
+        <div class="sc-row">ð ${esc(s.location||'')}</div>
+        ${certLabel?`<div class="sc-row">ðªª ${certLabel}</div>`:''}
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn-sm" style="border-color:var(--red);color:var(--red)" onclick="cancelEnroll('${s.id}')">åæ¶å ±å</button>
+      </div>
+    </div>`;
+}
+
+// ââ Session Detail ââââââââââââââââââââââââââââââââ
+function openDetail(sessionId) {
+  selectedSession = sessions.find(s => s.id===sessionId);
+  if (!selectedSession) return;
+  selectedCert = null;
+  const s = selectedSession;
+  const spots = Number(s.spotsLeft);
+  const enrolled = s.enrolled;
+  const uncertLeft = Math.max(0, MAX_UNCERT - Number(s.uncertCount||0));
+
+  let actionHTML = '';
+  if (enrolled) {
+    const certLabel = s.certLevel ? certName(s.certLevel) : '';
+    actionHTML = `
+      <div style="background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--teal);margin-bottom:10px">
+        â æ¨å·²å ±å${certLabel?g Â· '+certLabel:''}
+      </div>
+      <button class="btn btn-red" onclick="cancelEnroll('${s.id}')">åæ¶å ±å</button>`;
+  } else if (spots <= 0 && uncertLeft <= 0) {
+    actionHTML = `<button class="btn btn-outline" disabled>åé¡å·²æ»¿</button>`;
+  } else {
+    actionHTML = `
+      <div style="font-size:13px;color:var(--t3);margin-bottom:6px">é¸ææ¨çè­ç§ç­ç´ï¼</div>
+      <div class="select-grid" id="cert-grid">
+        <button class="select-btn ${uncertLeft<=0?'':''}${uncertLeft<=0?'disabled':''}" ${uncertLeft<=0?'disabled':''} onclick="selectCert('ç¡è­',this)">
+          <span class="sb-name">ç¡ è­</span>
+          <span class="sb-sub">${uncertLeft<=0?'åé¡å·²æ»¿':uncertLeft+'/'+MAX_UNCERT+' ä½å©é¤'}</span>
+        </button>
+        <button class="select-btn ${spots<=0?'disabled':''}" ${spots<=0?'disabled':''} onclick="selectCert('A1',this)">
+          <span class="sb-name">A1</span>
+          <span class="sb-sub">${spots<=0?'åé¡å·²æ»¿':'éæ¾ä¸­'}</span>
+        </button>
+        <button class="select-btn ${spots<=0?'disabled':''}" ${spots<=0?'disabled':''} onclick="selectCert('A2pool',this)">
+          <span class="sb-name">A2 Pool</span>
+          <span class="sb-sub">${spots<=0?'åé¡å·²æ»¿':'éæ¾ä¸­'}</span>
+        </button>
+        <button class="select-btn ${spots<=0?'disabled':''}" ${spots<=0?'disabled':''} onclick="selectCert('A2',this)">
+          <span class="sb-name">A2</span>
+          <span class="sb-sub">${spots<=0?'åé¡å·²æ»¿':'éæ¾ä¸­'}</span>
+        </button>
+      </div>
+      <button class="btn btn-teal" id="session-enroll-btn" onclick="enroll('${s.id}')" disabled>è«åé¸æè­ç§ç­ç´</button>`;
+  }
+
+  document.getElementById('modal-inner').innerHTML = `
+    <div class="modal-title">${esc(s.title)}</div>
+    <div class="modal-section">
+      <h4>æ´»åè³è¨</h4>
+      <div class="detail-row"><div class="detail-icon">ð</div><div class="detail-text">${s.date}${s.time?' Â· '+s.time:''}</div></div>
+      <div class="detail-row"><div class="detail-icon">ð¤</div><div class="detail-text">æç·´ï¼${esc(s.coach)||'â'}</div></div>
+      <div class="detail-row"><div class="detail-icon">ð°</div><div class="detail-text">${s.price?'NT$ '+s.price:'åè²»'}</div></div>
+      <div class="detail-row"><div class="detail-icon">ð¥</div>
+        <div class="detail-text">
+          ç¡è­åé¡ï¼${uncertLeft}/${MAX_UNCERT}&nbsp;&nbsp;æè­åé¡ï¼${spots>0?'éæ¾':'å·²æ»¿'}
+        </div>
+      </div>
+    </div>
+    ${s.meetingPoint?`<div class="modal-section"><h4>éåå°é»</h4><div class="meeting-box"><div class="label">è«å¨æ­¤éå</div><div class="value">${esc(s.meetingPoint)}</div></div></div>`:''}
+    ${s.location?`<div class="modal-section"><h4>å°é»</h4><div class="detail-row"><div class="detail-icon">ð</div><div class="detail-text">${esc(s.location)}</div></div></div>`:''}
+    ${s.description?`<div class="modal-section"><h4>æ´»åèªªæ</h4><div class="desc-box">${esc(s.description)}</div></div>`:''}
+    <div class="modal-actions">${actionHTML}<button class="btn btn-outline" onclick="closeModal()">éé</button></div>`;
+
+  document.getElementById('detail-modal').style.display = 'flex';
+}
+
+function selectCert(cert, btn) {
+  if (btn.disabled) return;
+  selectedCert = cert;
+  document.querySelectorAll('#cert-grid .select-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const enrollBtn = document.getElementById('session-enroll-btn');
+  if (enrollBtn) { enrollBtn.disabled = false; enrollBtn.textContent = 'ç«å³å ±å Â· ' + certName(cert); }
+}
+
+function certName(c) {
+  const map = { 'ç¡è­':'ç¡ è­', 'A1':'A1 è­ç§', 'A2pool':'A2 Pool', 'A2':'A2 è­ç§' };
+  return map[c] || c;
+}
+
+// ââ Trip List âââââââââââââââââââââââââââââââââââââ
+function renderTripList() {
+  const el = document.getElementById('trip-list');
+  if (!trips.length) {
+    el.innerHTML = '<div class="empty"><div class="e-icon">ð¤¿</div>ç®åæ²ææè¡è¡ç¨<br>è«æçºéæ³¨ï¼</div>';
+    return;
+  }
+  el.innerHTML = trips.map(t => tripCardHTML(t)).join('');
+}
+
+function tripCardHTML(t) {
+  const spots = Number(t.spotsLeft);
+  const spotsClass = spots<=0?'spots-full':spots<=3?'spots-few':'spots-ok';
+  const spotsLabel = spots<=0?'åé¡å·²æ»¿':`å© ${spots} ä½`;
+  const dateRange = t.startDate?(t.endDate?`${t.startDate} ï½ ${t.endDate}`:t.startDate):'æ¥æå¾å®';
+  return `
+    <div class="trip-card ${t.enrolled?'enrolled':''}" onclick="openTripDetail('${t.id}')">
+      <div class="trip-country">ð ${esc(t.country||'â')}</div>
+      <div class="sc-header">
+        <div class="trip-title">${esc(t.title)}</div>
+        ${t.enrolled?'<div class="enrolled-dot"></div>':''}
+      </div>
+      <div class="trip-dates">ð ${dateRange}</div>
+      <div class="trip-price-row">
+        ${t.priceSingle?`<div class="price-tag"><span class="pt-label">å®äºº</span><span class="pt-amt">NT$ ${Number(t.priceSingle).toLocaleString()}</span></div>`:''}
+        ${t.priceCouple?`<div class="price-tag"><span class="pt-label">éäººåå ±</span><span class="pt-amt">NT$ ${Number(t.priceCouple).toLocaleString()}</span></div>`:''}
+      </div>
+      <div class="trip-footer">
+        <span class="spots-badge ${spotsClass}">${spotsLabel}</span>
+        <span class="trip-no-flight">âï¸ æ©ç¥¨èªç</span>
+      </div>
+    </div>`;
+}
+
+function myTripCardHTML(t) {
+  const dateRange = t.startDate?(t.endDate?`${t.startDate} ï½ ${t.endDate}`:t.startDate):'æ¥æå¾å®';
+  const planLabel = t.myPlan==='couple'?'éäººåå ±':'å®äººæ¹æ¡';
+  const price = t.myPlan==='couple'?t.priceCouple:t.priceSingle;
+  return `
+    <div class="trip-card enrolled">
+      <div class="trip-country">ð ${esc(t.country||'â')}</div>
+      <div class="trip-title">${esc(t.title)}</div>
+      <div class="trip-dates">ð ${dateRange}</div>
+      <div style="margin:6px 0;font-size:12px;color:var(--teal)">â ${planLabel}${price?' Â· NT$ '+Number(price).toLocaleString():''}</div>
+      <div style="margin-top:8px">
+        <button class="btn-sm" style="border-color:var(--red);color:var(--red)" onclick="cancelTripEnroll('${t.id}')">åæ¶å ±å</button>
+      </div>
+    </div>`;
+}
+
+// ââ Trip Detail âââââââââââââââââââââââââââââââââââ
+function openTripDetail(tripId) {
+  selectedTrip = trips.find(t => t.id===tripId);
+  if (!selectedTrip) return;
+  selectedPlan = null;
+  const t = selectedTrip;
+  const spots = Number(t.spotsLeft);
+  const enrolled = t.enrolled;
+  const dateRange = t.startDate?(t.endDate?`${t.startDate} ï½ ${t.endDate}`:t.startDate):'æ¥æå¾å®';
+
+  let actionHTML = '';
+  if (enrolled) {
+    const planLabel = t.myPlan==='couple'?'éäººåå ±':'å®äººæ¹æ¡';
+    actionHTML = `
+      <div style="background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--teal);margin-bottom:10px">
+        â æ¨å·²å ±å Â· ${planLabel}
+      </div>
+      <button class="btn btn-red" onclick="cancelTripEnroll('${t.id}')">åæ¶å ±å</button>`;
+  } else if (spots <= 0) {
+    actionHTML = `<button class="btn btn-outline" disabled>åé¡å·²æ»¿</button>`;
+  } else {
+    const hasBoth = t.priceSingle && t.priceCouple;
+    actionHTML = `
+      <div style="font-size:13px;color:var(--t3);margin-bottom:6px">é¸ææ¹æ¡ï¼</div>
+      <div class="select-grid" id="plan-grid" style="grid-template-columns:${hasBoth?'1fr 1fr':'1fr'}">
+        ${t.priceSingle?`<button class="select-btn" onclick="selectPlan('single',this)">
+          <span class="sb-name">å®äººæ¹æ¡</span>
+          <span class="sb-sub">NT$ ${Number(t.priceSingle).toLocaleString()}</span>
+        </button>`:''}
+        ${t.priceCouple?`<button class="select-btn" onclick="selectPlan('couple',this)">
+          <span class="sb-name">éäººåå ±</span>
+          <span class="sb-sub">NT$ ${Number(t.priceCouple).toLocaleString()}/äºº</span>
+        </button>`:''}
+      </div>
+      <button class="btn btn-teal" id="trip-enroll-btn" onclick="enrollTrip('${t.id}')" disabled>è«åé¸ææ¹æ¡</button>`;
+  }
+
+  document.getElementById('modal-inner').innerHTML = `
+    <div style="font-size:11px;color:var(--t3);font-weight:700;letter-spacing:.5px;margin-bottom:4px">ð ${esc(t.country||'â')}</div>
+    <div class="modal-title">${esc(t.title)}</div>
+    <div class="modal-section">
+      <h4>è¡ç¨è³è¨</h4>
+      <div class="detail-row"><div class="detail-icon">ð</div><div class="detail-text">${dateRange}</div></div>
+      <div class="detail-row"><div class="detail-icon">ð¥</div><div class="detail-text">å©é¤åé¡ï¼${spots}${t.maxSpots?'/'+t.maxSpots:''} ä½</div></div>
+      <div class="detail-row"><div class="detail-icon">âï¸</div><div class="detail-text" style="color:var(--gold)">æ©ç¥¨è²»ç¨èªçï¼ä¸å«æ©ç¥¨ï¼</div></div>
+    </div>
+    <div class="modal-section">
+      <h4>è²»ç¨æ¹æ¡</h4>
+      ${t.priceSingle?`<div class="detail-row"><div class="detail-icon">ð§</div><div class="detail-text">å®äººæ¹æ¡ï¼<strong style="color:var(--gold)">NT$ ${Number(t.priceSingle).toLocaleString()}</strong></div></div>`:''}
+      ${t.priceCouple?`<div class="detail-row"><div class="detail-icon">ð«</div><div class="detail-text">éäººåå ±ï¼<strong style="color:var(--gold)">NT$ ${Number(t.priceCouple).toLocaleString()}</strong>/äºº</div></div>`:''}
+    </div>
+    ${t.itinerary?`<div class="modal-section"><h4>è©³ç´°è¡ç¨</h4><div class="desc-box">${esc(t.itinerary)}</div></div>`:''}
+    ${t.inclusions?`<div class="modal-section"><h4>è²»ç¨åå«</h4><div class="desc-box">${esc(t.inclusions)}</div></div>`:''}
+    ${t.notes?`<div class="modal-section"><h4>åè¨»</h4><div class="desc-box">${esc(t.notes)}</div></div>`:''}
+    <div class="modal-actions">${actionHTML}<button class="btn btn-outline" onclick="closeModal()">éé</button></div>`;
+
+  document.getElementById('detail-modal').style.display = 'flex';
+}
+
+function selectPlan(plan, btn) {
+  selectedPlan = plan;
+  document.querySelectorAll('#plan-grid .select-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const enrollBtn = document.getElementById('trip-enroll-btn');
+  if (enrollBtn) { enrollBtn.disabled = false; enrollBtn.textContent = 'å ±å Â· '+(plan==='couple'?'éäººåå ±':'å®äººæ¹æ¡'); }
+}
+
+function closeModal(e) {
+  if (!e || e.target===document.getElementById('detail-modal')) {
+    document.getElementById('detail-modal').style.display = 'none';
+    selectedCert = null; selectedPlan = null;
+  }
+}
+
+// ââ Enroll ââââââââââââââââââââââââââââââââââââââââ
+function enroll(sessionId) {
+  if (!selectedCert) { toast('è«åé¸æè­ç§ç­ç´', 'error'); return; }
+  // é¡¯ç¤ºç¢ºèªæ­¥é©ï¼è¼¸å¥å¯æ¬¾å¾äºç¢¼ï¼
+  const s = sessions.find(s=>s.id===sessionId);
+  document.getElementById('modal-inner').innerHTML = `
+    <div class="modal-title">ç¢ºèªå ±å</div>
+    <div class="modal-section">
+      <h4>å ±åæè¦</h4>
+      <div class="detail-row"><div class="detail-icon">ð</div><div class="detail-text">${esc(s?.title||'')}</div></div>
+      <div class="detail-row"><div class="detail-icon">ð</div><div class="detail-text">${s?.date||''}${s?.time?' Â· '+s.time:''}</div></div>
+      <div class="detail-row"><div class="detail-icon">ðªª</div><div class="detail-text">è­ç§ç­ç´ï¼${certName(selectedCert)}</div></div>
+      ${s?.price?`<div class="detail-row"><div class="detail-icon">ð°</div><div class="detail-text">è²»ç¨ï¼NT$ ${s.price}</div></div>`:''}
+    </div>
+    <div class="modal-section">
+      <h4>å¯æ¬¾è³è¨</h4>
+      <div style="background:#112840;border:1px solid var(--teal);border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:13px;color:var(--t2);line-height:1.9">
+        çå±±éè¡ï¼808ï¼<br>å¸³èï¼0772976015466
+      </div>
+      <div class="field">
+        <label>å¯æ¬¾å¾äºç¢¼ *</label>
+        <input id="transfer-code-input" placeholder="è«è¼¸å¥æ¨å¯æ¬¾å¸³èå¾äºç¢¼" maxlength="5" type="text" inputmode="numeric" pattern="[0-9]*">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-teal" id="confirm-enroll-btn" onclick="submitEnroll('${sessionId}')">ç¢ºèªå ±å</button>
+      <button class="btn btn-outline" onclick="openDetail('${sessionId}')">è¿å</button>
+    </div>`;
+}
+
+async function submitEnroll(sessionId) {
+  const transferCode = (document.getElementById('transfer-code-input')?.value || '').trim();
+  if (!transferCode) { toast('è«è¼¸å¥å¯æ¬¾å¾äºç¢¼', 'error'); return; }
+  if (!/^\d{5}$/.test(transferCode)) { toast('è«è¼¸å¥5ä½æ¸å­', 'error'); return; }
+  const confirmBtn = document.getElementById('confirm-enroll-btn');
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'å ±åä¸­â¦'; }
+  const res = await api({ action:'enrollSession', lineUid:profile.userId, sessionId, certLevel:selectedCert, transferCode });
+  if (res.ok) {
+    const s = sessions.find(s=>s.id===sessionId);
+    if (s) {
+      s.enrolled = true; s.certLevel = selectedCert;
+      s.spotsLeft = Math.max(0, Number(s.spotsLeft)-1);
+      if (selectedCert === 'ç¡è­') s.uncertCount = (Number(s.uncertCount)||0)+1;
+    }
+    // é¡¯ç¤ºå ±åæåç«é¢ï¼å«å¯æ¬¾è³è¨ï¼
+    document.getElementById('modal-inner').innerHTML = `
+      <div class="modal-title" style="color:var(--teal)">â å ±åæåï¼</div>
+      <div class="modal-section">
+        <div style="background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.9;color:var(--t2)">
+          <div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:6px">ð ${esc(s?.title||'')}</div>
+          <div>ðªª ${certName(selectedCert)}</div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,201,177,.2);font-size:13px">
+            ð³ å¯æ¬¾è³è¨ï¼çå±±éè¡(808) 0772976015466<br>
+            <span style="color:var(--teal);font-weight:700">å¾äºç¢¼ï¼${esc(transferCode)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal()">éé</button>
+      </div>`;
+    renderTab(currentTab);
+  } else {
+    toast(res.error||'å ±åå¤±æ', 'error');
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'ç¢ºèªå ±å'; }
+  }
+}
+
+async function cancelEnroll(sessionId) {
+  if (!confirm('ç¢ºèªåæ¶å ±åï¼')) return;
+  const res = await api({ action:'cancelEnroll', lineUid:profile.userId, sessionId });
+  if (res.ok) {
+    const s = sessions.find(s=>s.id===sessionId);
+    if (s) { s.enrolled = false; s.spotsLeft = Number(s.spotsLeft)+1; if(s.certLevel==='ç¡è­')s.uncertCount=Math.max(0,(w.uncertCount||0)-1); }
+    closeModal(); toast('å·²åæ¶å ±å', 'success'); renderTab(currentTab);
+  } else toast(res.error||'åæ¶å¤±æ', 'error');
+}
+
+async function enrollTrip(tripId) {
+  if (!selectedPlan) { toast('è«åé¸ææ¹æ¡', 'error'); return; }
+  const btn = document.getElementById('trip-enroll-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'å ±åä¸­â¦'; }
+  const res = await api({ action:'enrollTrip', lineUid:profile.userId, tripId, plan:selectedPlan });
+  if (res.ok) {
+    const t = trips.find(t=>t.id===tripId);
+    if (t) { t.enrolled = true; t.myPlan = selectedPlan; t.spotsLeft = Math.max(0, Number(t.spotsLeft)-1); }
+    closeModal(); toast('â æè¡å ±åæåï¼', 'success'); renderTab(currentTab);
+  } else {
+    toast(res.error||'å ±åå¤±æ', 'error');
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+async function cancelTripEnroll(tripId) {
+  if (!confirm('ç¢ºèªåæ¶æè¡å ±åï¼')) return;
+  const res = await api({ action:'cancelTripEnroll', lineUid:profile.userId, tripId });
+  if (res.ok) {
+    const t = trips.find(t=>t.id===tripId);
+    if (t) { t.enrolled = false; t.myPlan = null; t.spotsLeft = Number(t.spotsLeft)+1; }
+    closeModal(); toast('å·²åæ¶æè¡å ±å', 'success'); renderTab(currentTab);
+  } else toast(res.error||'åæ¶å¤±æ', 'error');
+}
+
+// ââ Utils âââââââââââââââââââââââââââââââââââââââââ
+async function api(data) {
+  try {
+    const r = await fetch(GAS_URL, { method:'POST', body:JSON.stringify(data) });
+    return r.json();
+  } catch(e) { return {ok:false,error:'ç¶²è·¯é¯èª¤'}; }
+}
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = 'toast '+type; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+init();
+</script>
+</body>
+</html>
