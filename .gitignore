@@ -1,0 +1,14 @@
+# 含有真實金鑰的設定檔（本機備份用，不要上傳）
+config.local.gs
+*.secret.*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 編輯器
+.vscode/
+.idea/
+*.swp
+*.swo

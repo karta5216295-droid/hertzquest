@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HertzQuest 教練後台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Noto Sans TC', sans-serif;
+    background: #0A1628;
+    color: #F0F0FF;
+    min-height: 100vh;
+  }
+  header {
+    background: #0D2240;
+    border-bottom: 1px solid #1E4060;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1  { font-size: 18px; font-weight: 900; color: #00C9B1; }
+  header span{ font-size: 12px; color: #7FBBCC; }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid #1E4060;
+    background: #0D2240;
+  }
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #7FBBCC;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all .2s;
+  }
+  .tab.active { color: #00C9B1; border-bottom-color: #00C9B1; }
+
+  .panel { display: none; padding: 16px; }
+  .panel.active { display: block; }
+
+  /* 登入頁 */
+  .login-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    padding: 20px;
+  }
+  .login-card {
+    background: #0D2240;
+    border-radius: 20px;
+    border: 1px solid #1E4060;
+    padding: 32px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+  }
+  .login-card h2 { font-size: 20px; margin-bottom: 8px; }
+  .login-card p  { font-size: 13px; color: #7FBBCC; margin-bottom: 24px; }
+
+  input {
+    width: 100%;
+    background: #112840;
+    border: 1px solid #1E4060;
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #F0F0FF;
+    font-size: 15px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  input:focus { border-color: #00C9B1; }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    background: #00C9B1;
+    color: #0A1628;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-danger {
+    background: transparent;
+    color: #E05050;
+    border: 1px solid #E05050;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-approve {
+    background: transparent;
+    color: #00C9B1;
+    border: 1px solid #00C9B1;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-sm {
+    background: transparent;
+    color: #7FBBCC;
+    border: 1px solid #1E4060;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* 篩選列 */
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid #1E4060;
+    background: transparent;
+    color: #7FBBCC;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .filter-btn.active { border-color: #00C9B1; color: #00C9B1; background: rgba(0,201,177,0.1); }
+
+  /* 學員卡片 */
+  .member-card {
+    background: #0D2240;
+    border: 1px solid #1E4060;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .member-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .member-name { font-size: 15px; font-weight: 700; }
+  .member-meta { font-size: 12px; color: #7FBBCC; margin-top: 4px; line-height: 1.6; }
+  .status-badge {
+    display: inline-block;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .status-pending  { background: rgba(255,176,48,0.2);  color: #FFB030; }
+  .status-approved { background: rgba(0,201,177,0.2);   color: #00C9B1; }
+  .status-rejected { background: rgba(224,80,80,0.2);   color: #E05050; }
+  .member-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+  /* 統計 */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    background: #0D2240;
+    border: 1px solid #1E4060;
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+  }
+  .stat-num   { font-size: 28px; font-weight: 900; color: #00C9B1; }
+  .stat-label { font-size: 11px; color: #7FBBCC; margin-top: 4px; }
+
+  /* 活動表單 */
+  .event-form {
+    background: #0D2240;
+    border: 1px solid #1E4060;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .event-form label { display: block; font-size: 12px; color: #A0C4D8; margin: 10px 0 4px; }
+  .event-card {
+    background: #0D2240;
+    border: 1px solid #1E4060;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .event-info { flex: 1; }
+  .event-title { font-size: 14px; font-weight: 700; }
+  .event-meta  { font-size: 12px; color: #7FBBCC; margin-top: 4px; }
+  .spots-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: #FFB030;
+    white-space: nowrap;
+  }
+
+  .empty { text-align: center; color: #7FBBCC; font-size: 14px; padding: 40px 0; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #0D2240;
+    border: 1px solid #1E4060;
+    border-radius: 20px;
+    padding: 24px;
+    width: 100%;
+    max-width: 360px;
+  }
+  .modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .modal-actions button { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .btn-confirm { background: #00C9B1; color: #0A1628; border: none; }
+  .btn-cancel  { background: transparent; color: #7FBBCC; border: 1px solid #1E4060; }
+  .btn-reject  { background: transparent; color: #E05050; border: 1px solid #E05050; }
+
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid #1E4060;
+    border-top-color: #00C9B1;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .enroll-list { margin-top: 10px; }
+  .enroll-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #112840;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 登入頁 -->
+<div id="login-page">
+  <div class="login-wrap">
+    <div class="login-card">
+      <h2>教練後台登入</h2>
+      <p>請輸入管理 Token 進入後台</p>
+      <input type="password" id="token-input" placeholder="管理 Token" onkeydown="if(event.key==='Enter')login()">
+      <button class="btn" onclick="login()">登入</button>
+      <div id="login-err" style="color:#E05050;font-size:13px;margin-top:10px;display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="main-page" style="display:none">
+  <header>
+    <div>
+      <h1>HertzQuest 後台</h1>
+      <span>教練管理系統</span>
+    </div>
+    <button class="btn-sm" onclick="logout()">登出</button>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('members')">學員審核</div>
+    <div class="tab"        onclick="switchTab('events')">活動管理</div>
+  </div>
+
+  <!-- 學員審核 -->
+  <div id="panel-members" class="panel active">
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">總申請</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-pending" style="color:#FFB030">—</div><div class="stat-label">待審核</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-approved" style="color:#00C9B1">—</div><div class="stat-label">已核准</div></div>
+    </div>
+
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="setFilter('all', this)">全部</button>
+      <button class="filter-btn" onclick="setFilter('pending', this)">待審核</button>
+      <button class="filter-btn" onclick="setFilter('approved', this)">已核准</button>
+      <button class="filter-btn" onclick="setFilter('rejected', this)">已拒絕</button>
+    </div>
+
+    <div id="member-list">
+      <div class="empty"><span class="spinner"></span>載入中…</div>
+    </div>
+  </div>
+
+  <!-- 活動管理 -->
+  <div id="panel-events" class="panel">
+    <div class="event-form">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">新增活動</div>
+      <label>活動標題 *</label>
+      <input id="ev-title" placeholder="蘭嶼團練 2024">
+      <label>日期 *</label>
+      <input id="ev-date" type="date">
+      <label>地點</label>
+      <input id="ev-location" placeholder="台中潛立方">
+      <label>說明</label>
+      <input id="ev-desc" placeholder="活動說明…">
+      <label>名額上限</label>
+      <input id="ev-spots" type="number" placeholder="20" style="width:100px">
+      <label>費用 (NT$)</label>
+      <input id="ev-price" type="number" placeholder="0" style="width:120px">
+      <button class="btn" style="margin-top:14px" onclick="createEvent()">建立活動</button>
+    </div>
+
+    <div id="event-list">
+      <div class="empty"><span class="spinner"></span>載入中…</div>
+    </div>
+  </div>
+</div>
+
+<!-- 審核 Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">核准學員</h3>
+    <div id="modal-body" style="font-size:13px;color:#7FBBCC"></div>
+    <input id="modal-input" placeholder="備註（選填）" style="margin-top:12px">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-reject" id="btn-reject">拒絕</button>
+      <button class="btn-confirm" id="btn-approve">核准</button>
+    </div>
+  </div>
+</div>
+
+<!-- 報名名單 Modal -->
+<div class="modal-overlay" id="enroll-modal">
+  <div class="modal" style="max-width:420px">
+    <h3 id="enroll-modal-title">報名名單</h3>
+    <div id="enroll-modal-body"></div>
+    <div style="margin-top:14px">
+      <button class="btn-cancel" style="width:100%;padding:12px;border-radius:10px;border:1px solid #1E4060;color:#7FBBCC;background:transparent;cursor:pointer" onclick="closeEnrollModal()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const GAS_URL = 'YOUR_GAS_DEPLOYED_URL';  // 替換為部署後的 GAS 網址
+
+let ADMIN_TOKEN  = '';
+let allMembers   = [];
+let currentFilter = 'all';
+let pendingMember = null;
+
+// ── 登入 ──────────────────────────────────────────────────
+function login() {
+  const token = document.getElementById('token-input').value.trim();
+  if (!token) return;
+  ADMIN_TOKEN = token;
+  verifyAndLoad();
+}
+function logout() {
+  ADMIN_TOKEN = '';
+  document.getElementById('login-page').style.display = 'block';
+  document.getElementById('main-page').style.display  = 'none';
+}
+
+async function verifyAndLoad() {
+  try {
+    const res = await callGAS({ action: 'get_members', adminToken: ADMIN_TOKEN, statusFilter: 'all' });
+    if (!res.ok) { showLoginErr('Token 錯誤'); return; }
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('main-page').style.display  = 'block';
+    allMembers = res.members;
+    renderMembers();
+    loadEvents();
+  } catch { showLoginErr('連線失敗，請稍後再試'); }
+}
+function showLoginErr(msg) {
+  const el = document.getElementById('login-err');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── 頁籤 ─────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['members','events'][i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ── 篩選 ─────────────────────────────────────────────────
+function setFilter(filter, el) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderMembers();
+}
+
+// ── 渲染學員 ─────────────────────────────────────────────
+function renderMembers() {
+  const total    = allMembers.length;
+  const pending  = allMembers.filter(m => m.status === 'pending').length;
+  const approved = allMembers.filter(m => m.status === 'approved').length;
+
+  document.getElementById('stat-total').textContent   = total;
+  document.getElementById('stat-pending').textContent = pending;
+  document.getElementById('stat-approved').textContent= approved;
+
+  const filtered = currentFilter === 'all' ? allMembers
+    : allMembers.filter(m => m.status === currentFilter);
+
+  const el = document.getElementById('member-list');
+  if (filtered.length === 0) {
+    el.innerHTML = '<div class="empty">暫無資料</div>'; return;
+  }
+
+  el.innerHTML = filtered.map(m => `
+    <div class="member-card">
+      <div class="member-top">
+        <div>
+          <div class="member-name">${esc(m.name)}</div>
+          <div class="member-meta">
+            電話：${esc(m.phone)}<br>
+            課程：${esc(m.course)} ｜ 教練：${esc(m.coach)}<br>
+            登記：${m.registeredAt ? m.registeredAt.slice(0,10) : '—'}
+            ${m.notes ? '<br>備註：' + esc(m.notes) : ''}
+          </div>
+        </div>
+        <span class="status-badge status-${m.status}">${statusLabel(m.status)}</span>
+      </div>
+      ${m.status === 'pending' ? `
+        <div class="member-actions">
+          <button class="btn-approve" onclick="openModal('${m.id}', '${esc(m.name)}', '${m.lineUid}')">核准為學員</button>
+          <button class="btn-danger"  onclick="openRejectModal('${m.id}', '${esc(m.name)}')">拒絕</button>
+        </div>` : ''}
+    </div>
+  `).join('');
+}
+
+function statusLabel(s) {
+  return { pending: '待審核', approved: '已核准', rejected: '已拒絕' }[s] || s;
+}
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── 核准 Modal ───────────────────────────────────────────
+function openModal(id, name, uid) {
+  pendingMember = { id, name, uid, action: 'approve' };
+  document.getElementById('modal-title').textContent = `核准學員：${name}`;
+  document.getElementById('modal-body').textContent  = `核准後將透過 LINE 通知 ${name} 身分驗證成功，並加入白名單。`;
+  document.getElementById('modal-input').placeholder = '備註（選填）';
+  document.getElementById('btn-approve').style.display = '';
+  document.getElementById('btn-reject').style.display  = 'none';
+  document.getElementById('modal').classList.add('show');
+  document.getElementById('btn-approve').onclick = confirmApprove;
+}
+function openRejectModal(id, name) {
+  pendingMember = { id, name, action: 'reject' };
+  document.getElementById('modal-title').textContent = `拒絕學員：${name}`;
+  document.getElementById('modal-body').textContent  = `拒絕後將透過 LINE 通知 ${name}，請填寫拒絕原因。`;
+  document.getElementById('modal-input').placeholder = '拒絕原因（必填）';
+  document.getElementById('btn-approve').style.display = 'none';
+  document.getElementById('btn-reject').style.display  = '';
+  document.getElementById('modal').classList.add('show');
+  document.getElementById('btn-reject').onclick = confirmReject;
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  document.getElementById('modal-input').value = '';
+  pendingMember = null;
+}
+
+async function confirmApprove() {
+  if (!pendingMember) return;
+  const notes = document.getElementById('modal-input').value.trim();
+  document.getElementById('btn-approve').disabled = true;
+  document.getElementById('btn-approve').textContent = '處理中…';
+
+  const res = await callGAS({ action: 'approve', adminToken: ADMIN_TOKEN, memberId: pendingMember.id, notes });
+  if (res.ok) {
+    const m = allMembers.find(m => m.id === pendingMember.id);
+    if (m) m.status = 'approved';
+    renderMembers();
+    closeModal();
+    alert('✅ ' + res.message);
+  } else {
+    alert('失敗：' + res.error);
+  }
+  document.getElementById('btn-approve').disabled = false;
+  document.getElementById('btn-approve').textContent = '核准';
+}
+async function confirmReject() {
+  if (!pendingMember) return;
+  const reason = document.getElementById('modal-input').value.trim();
+  if (!reason) { alert('請填寫拒絕原因'); return; }
+  document.getElementById('btn-reject').disabled = true;
+
+  const res = await callGAS({ action: 'reject', adminToken: ADMIN_TOKEN, memberId: pendingMember.id, reason });
+  if (res.ok) {
+    const m = allMembers.find(m => m.id === pendingMember.id);
+    if (m) { m.status = 'rejected'; m.notes = reason; }
+    renderMembers();
+    closeModal();
+    alert('已拒絕：' + pendingMember.name);
+  } else alert('失敗：' + res.error);
+  document.getElementById('btn-reject').disabled = false;
+}
+
+// ── 活動管理 ─────────────────────────────────────────────
+let allEvents = [];
+
+async function loadEvents() {
+  const res = await callGAS({ action: 'get_events', activeOnly: false });
+  if (!res.ok) return;
+  allEvents = res.events;
+  renderEvents();
+}
+
+function renderEvents() {
+  const el = document.getElementById('event-list');
+  if (allEvents.length === 0) {
+    el.innerHTML = '<div class="empty">尚無活動</div>'; return;
+  }
+  el.innerHTML = allEvents.map(ev => `
+    <div class="event-card">
+      <div class="event-info">
+        <div class="event-title">${esc(ev.title)}</div>
+        <div class="event-meta">${ev.date || '—'}　${esc(ev.location)}</div>
+        <div class="event-meta">費用：NT$ ${ev.price}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="spots-badge">剩 ${ev.spotsLeft}/${ev.maxSpots}</div>
+        <button class="btn-sm" style="margin-top:6px" onclick="showEnrollments('${ev.id}','${esc(ev.title)}')">報名名單</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function createEvent() {
+  const title    = document.getElementById('ev-title').value.trim();
+  const date     = document.getElementById('ev-date').value;
+  const location = document.getElementById('ev-location').value.trim();
+  const desc     = document.getElementById('ev-desc').value.trim();
+  const maxSpots = document.getElementById('ev-spots').value || 20;
+  const price    = document.getElementById('ev-price').value || 0;
+
+  if (!title || !date) { alert('標題和日期為必填'); return; }
+
+  const res = await callGAS({ action: 'create_event', adminToken: ADMIN_TOKEN, title, date, location, description: desc, maxSpots, price });
+  if (res.ok) {
+    alert('✅ ' + res.message);
+    ['ev-title','ev-date','ev-location','ev-desc','ev-spots','ev-price'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    loadEvents();
+  } else alert('失敗：' + res.error);
+}
+
+async function showEnrollments(eventId, eventTitle) {
+  document.getElementById('enroll-modal-title').textContent = `報名名單：${eventTitle}`;
+  document.getElementById('enroll-modal-body').innerHTML = '<div class="empty"><span class="spinner"></span>載入中…</div>';
+  document.getElementById('enroll-modal').classList.add('show');
+
+  const res = await callGAS({ action: 'get_enrollments', adminToken: ADMIN_TOKEN, eventId });
+  if (!res.ok) { document.getElementById('enroll-modal-body').textContent = '載入失敗'; return; }
+
+  if (res.enrollments.length === 0) {
+    document.getElementById('enroll-modal-body').innerHTML = '<div class="empty">尚無報名者</div>';
+    return;
+  }
+
+  document.getElementById('enroll-modal-body').innerHTML =
+    `<div style="font-size:12px;color:#7FBBCC;margin-bottom:10px">共 ${res.enrollments.length} 人</div>` +
+    res.enrollments.map((e, i) => `
+      <div class="enroll-item">
+        <span>${i+1}. ${esc(e.name)}</span>
+        <span style="color:#00C9B1;font-size:11px">${e.enrolledAt ? e.enrolledAt.slice(0,10) : '—'}</span>
+      </div>
+    `).join('');
+}
+function closeEnrollModal() {
+  document.getElementById('enroll-modal').classList.remove('show');
+}
+
+// ── 通用 ─────────────────────────────────────────────────
+async function callGAS(data) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+</script>
+</body>
+</html>

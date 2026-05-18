@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HertzQuest 學員身分驗證</title>
+<!-- LINE LIFF SDK -->
+<script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Noto Sans TC', sans-serif;
+    background: #0A1628;
+    color: #F0F0FF;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: #0D2240;
+    border-radius: 20px;
+    border: 1px solid #1E4060;
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 420px;
+  }
+  .logo {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .logo h1 { font-size: 22px; font-weight: 900; color: #00C9B1; }
+  .logo p  { font-size: 13px; color: #7FBBCC; margin-top: 6px; }
+
+  label { display: block; font-size: 12px; color: #A0C4D8; margin-bottom: 6px; margin-top: 16px; }
+  input, select {
+    width: 100%;
+    background: #112840;
+    border: 1px solid #1E4060;
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #F0F0FF;
+    font-size: 15px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input:focus, select:focus { border-color: #00C9B1; }
+  select option { background: #112840; }
+
+  .profile-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #112840;
+    border-radius: 12px;
+    border: 1px solid #1E4060;
+    padding: 12px 14px;
+    margin-bottom: 4px;
+  }
+  .profile-box img {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .profile-box .pname { font-weight: 700; font-size: 14px; }
+  .profile-box .pid   { font-size: 11px; color: #7FBBCC; }
+
+  .btn {
+    display: block;
+    width: 100%;
+    margin-top: 24px;
+    padding: 15px;
+    background: #00C9B1;
+    color: #0A1628;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: opacity .2s;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .msg {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    text-align: center;
+    display: none;
+  }
+  .msg.success { background: rgba(0,201,177,0.15); border: 1px solid #00C9B1; color: #00C9B1; }
+  .msg.error   { background: rgba(224,80,80,0.15);  border: 1px solid #E05050; color: #E05050; }
+  .msg.show    { display: block; }
+
+  .loading {
+    text-align: center;
+    padding: 40px 0;
+    color: #7FBBCC;
+    font-size: 14px;
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid #1E4060;
+    border-top-color: #00C9B1;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .note {
+    font-size: 12px;
+    color: #7FBBCC;
+    text-align: center;
+    margin-top: 16px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <h1>HertzQuest</h1>
+    <p>學員身分驗證登記</p>
+  </div>
+
+  <div id="loading-area" class="loading">
+    <div class="spinner"></div>
+    正在載入 LINE 資訊…
+  </div>
+
+  <div id="form-area" style="display:none">
+    <p style="font-size:13px;color:#7FBBCC;margin-bottom:16px;">
+      請填寫以下資料，教練審核通過後將透過 LINE 通知您。
+    </p>
+
+    <div class="profile-box" id="profile-box">
+      <img id="avatar" src="" alt="">
+      <div>
+        <div class="pname" id="display-name">—</div>
+        <div class="pid"   id="display-uid">—</div>
+      </div>
+    </div>
+
+    <label>真實姓名 *</label>
+    <input id="name" type="text" placeholder="請輸入真實姓名">
+
+    <label>聯絡電話 *</label>
+    <input id="phone" type="tel" placeholder="0912-345-678">
+
+    <label>報名課程</label>
+    <select id="course">
+      <option value="">請選擇課程</option>
+      <option value="自由潛水入門班">自由潛水入門班</option>
+      <option value="AIDA2 課程">AIDA2 課程</option>
+      <option value="AIDA3 課程">AIDA3 課程</option>
+      <option value="進階靜態訓練">進階靜態訓練</option>
+      <option value="深度特訓班">深度特訓班</option>
+      <option value="教練培訓課程">教練培訓課程</option>
+      <option value="其他">其他</option>
+    </select>
+
+    <label>指定教練（選填）</label>
+    <input id="coach" type="text" placeholder="請輸入教練姓名">
+
+    <button class="btn" id="submit-btn" onclick="submitForm()">送出驗證申請</button>
+    <div class="msg" id="msg"></div>
+
+    <p class="note">
+      資料僅供身分核對使用，不會對外公開。<br>
+      審核通常在 24 小時內完成。
+    </p>
+  </div>
+
+  <div id="done-area" style="display:none">
+    <div style="text-align:center;padding:20px 0">
+      <div style="font-size:64px;margin-bottom:16px">✅</div>
+      <div style="font-size:18px;font-weight:700;color:#00C9B1">驗證通過！</div>
+      <div style="font-size:13px;color:#7FBBCC;margin-top:8px">您的學員身分已核准，現在可以報名活動囉！</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const LIFF_ID = 'YOUR_LIFF_ID_REGISTER';  // 替換為您的 LIFF ID
+const GAS_URL = 'YOUR_GAS_DEPLOYED_URL';   // 替換為部署後的 GAS 網址
+
+let lineUid = '';
+
+async function init() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    const profile = await liff.getProfile();
+    lineUid = profile.userId;
+
+    document.getElementById('avatar').src       = profile.pictureUrl || '';
+    document.getElementById('display-name').textContent = profile.displayName;
+    document.getElementById('display-uid').textContent  = 'LINE UID: ' + lineUid.slice(0, 12) + '…';
+
+    // 檢查是否已通過驗證
+    const res = await callGAS({ action: 'check_whitelist', lineUid });
+    if (res.approved) {
+      document.getElementById('loading-area').style.display = 'none';
+      document.getElementById('done-area').style.display    = 'block';
+      return;
+    }
+
+    document.getElementById('loading-area').style.display = 'none';
+    document.getElementById('form-area').style.display    = 'block';
+
+  } catch (err) {
+    document.getElementById('loading-area').innerHTML =
+      '<p style="color:#E05050">載入失敗：' + err.message + '<br>請確認是在 LINE 內開啟。</p>';
+  }
+}
+
+async function submitForm() {
+  const name  = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const course= document.getElementById('course').value;
+  const coach = document.getElementById('coach').value.trim();
+  const btn   = document.getElementById('submit-btn');
+  const msg   = document.getElementById('msg');
+
+  if (!name || !phone) {
+    showMsg('請填寫姓名和電話', 'error'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '送出中…';
+  hideMsg();
+
+  try {
+    const res = await callGAS({ action: 'register', lineUid, name, phone, course, coach });
+    if (res.ok) {
+      showMsg('✅ ' + res.message, 'success');
+      btn.textContent = '已送出';
+    } else {
+      showMsg('⚠️ ' + res.error, 'error');
+      btn.disabled = false;
+      btn.textContent = '送出驗證申請';
+    }
+  } catch (e) {
+    showMsg('網路錯誤，請稍後再試', 'error');
+    btn.disabled = false;
+    btn.textContent = '送出驗證申請';
+  }
+}
+
+async function callGAS(data) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg ' + type + ' show';
+}
+function hideMsg() {
+  document.getElementById('msg').className = 'msg';
+}
+
+init();
+</script>
+</body>
+</html>

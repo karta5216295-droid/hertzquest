@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>HertzQuest 團練</title>
+<script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+<style>
+:root {
+  --bg:#0A1628; --card:#0D2240; --border:#1E4060;
+  --teal:#00C9B1; --gold:#FFB030; --red:#E05050;
+  --t1:#F0F0FF; --t2:#A0C4D8; --t3:#7FBBCC;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overscroll-behavior:none;}
+
+/* ── Layout ── */
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+.topbar{flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.topbar-title{font-size:17px;font-weight:900;color:var(--teal);}
+.topbar-user{display:flex;align-items:center;gap:8px;}
+.avatar-text{width:32px;height:32px;border-radius:50%;background:rgba(0,201,177,.2);border:1.5px solid var(--teal);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--teal);}
+.username{font-size:13px;font-weight:700;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.tabbar{flex-shrink:0;background:var(--card);border-top:1px solid var(--border);display:flex;}
+.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0 8px;gap:3px;border:none;background:transparent;cursor:pointer;}
+.tab-icon{font-size:20px;opacity:.5;}
+.tab-label{font-size:10px;color:var(--t3);font-weight:700;opacity:.5;}
+.tab-btn.active .tab-icon,.tab-btn.active .tab-label{opacity:1;}
+.tab-btn.active .tab-label{color:var(--teal);}
+
+/* ── Splash / Register ── */
+#splash{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:999;}
+.spin{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#register-screen{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;}
+.reg-card{background:var(--card);border-radius:24px;border:1px solid var(--border);padding:32px 24px;width:100%;max-width:400px;}
+.reg-card .logo{text-align:center;margin-bottom:24px;}
+.reg-card .logo h1{font-size:24px;font-weight:900;color:var(--teal);}
+.reg-card .logo p{font-size:13px;color:var(--t3);margin-top:6px;}
+.profile-strip{display:flex;align-items:center;gap:12px;background:#112840;border-radius:12px;padding:12px 14px;margin-bottom:20px;}
+.profile-strip img{width:44px;height:44px;border-radius:50%;}
+.profile-strip .pn{font-weight:700;font-size:15px;}
+.profile-strip .ps{font-size:11px;color:var(--t3);}
+
+/* ── Forms ── */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px;}
+.field input,.field textarea,.field select{width:100%;background:#112840;border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--t1);font-size:15px;outline:none;font-family:inherit;transition:border-color .2s;}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--teal);}
+.field textarea{height:80px;resize:none;}
+.field select option{background:#112840;}
+
+/* ── Buttons ── */
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;transition:opacity .2s;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-teal{background:var(--teal);color:#0A1628;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--t3);}
+.btn-red{background:transparent;border:1px solid var(--red);color:var(--red);}
+.btn-sm{padding:7px 14px;font-size:12px;font-weight:700;border-radius:10px;border:1px solid;cursor:pointer;background:transparent;}
+
+/* ── Session cards ── */
+.section-pad{padding:12px;}
+.section-title{font-size:13px;font-weight:700;color:var(--t3);margin-bottom:10px;}
+.session-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;}
+.session-card:active{border-color:var(--teal);}
+.session-card.enrolled{border-color:rgba(0,201,177,.35);}
+.sc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.sc-title{font-size:15px;font-weight:800;line-height:1.3;}
+.enrolled-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:5px;}
+.sc-meta{font-size:12px;color:var(--t3);margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+.sc-row{display:flex;align-items:center;gap:6px;}
+.sc-footer{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
+.spots-badge{font-size:12px;font-weight:700;}
+.spots-ok{color:var(--teal);}
+.spots-few{color:var(--gold);}
+.spots-full{color:var(--red);}
+.coach-chip{font-size:11px;color:var(--t2);background:#112840;border-radius:20px;padding:3px 10px;}
+.price-chip{font-size:11px;font-weight:700;color:var(--gold);}
+
+/* ── Cert spots row ── */
+.cert-spots-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.cert-spot-box{flex:1;min-width:80px;background:#112840;border:1px solid var(--border);border-radius:10px;padding:6px 10px;text-align:center;}
+.cert-spot-box .csb-label{font-size:10px;color:var(--t3);margin-bottom:2px;}
+.cert-spot-box .csb-num{font-size:13px;font-weight:700;}
+.csb-ok{color:var(--teal);}
+.csb-full{color:var(--red);}
+
+/* ── Trip cards ── */
+.trip-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;}
+.trip-card:active{border-color:var(--teal);}
+.trip-card.enrolled{border-color:rgba(0,201,177,.35);}
+.trip-country{font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.trip-title{font-size:16px;font-weight:800;line-height:1.3;margin-bottom:8px;}
+.trip-dates{font-size:12px;color:var(--t3);margin-bottom:8px;}
+.trip-price-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+.price-tag{font-size:11px;font-weight:700;background:#112840;border:1px solid var(--border);border-radius:8px;padding:4px 10px;}
+.price-tag .pt-label{color:var(--t3);margin-right:4px;}
+.price-tag .pt-amt{color:var(--gold);}
+.trip-footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
+.trip-no-flight{font-size:10px;color:#5A7A90;}
+
+/* ── Select grids (cert / plan) ── */
+.select-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
+.select-btn{padding:12px 8px;border-radius:12px;border:2px solid var(--border);background:transparent;color:var(--t1);font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:.2s;}
+.select-btn:hover{border-color:var(--teal);}
+.select-btn.selected{border-color:var(--teal);background:rgba(0,201,177,.1);color:var(--teal);}
+.select-btn:disabled{opacity:.35;cursor:not-allowed;}
+.select-btn .sb-name{font-size:13px;font-weight:900;display:block;margin-bottom:3px;}
+.select-btn .sb-sub{font-size:11px;color:var(--t3);display:block;}
+.select-btn.selected .sb-sub{color:var(--teal);}
+.select-btn:disabled .sb-sub{color:var(--red)!important;}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;}
+.modal-sheet{background:var(--bg);border-radius:24px 24px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding:8px 0 32px;animation:slideUp .25s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+.modal-inner{padding:0 20px;}
+.modal-title{font-size:20px;font-weight:900;margin-bottom:8px;}
+.modal-section{margin-top:18px;}
+.modal-section h4{font-size:12px;color:var(--t3);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;}
+.detail-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;font-size:14px;}
+.detail-icon{font-size:18px;width:24px;text-align:center;flex-shrink:0;}
+.detail-text{color:var(--t2);line-height:1.6;}
+.meeting-box{background:#0D2240;border:1px solid var(--teal);border-radius:12px;padding:14px 16px;margin-top:6px;}
+.meeting-box .label{font-size:11px;color:var(--teal);font-weight:700;margin-bottom:4px;}
+.meeting-box .value{font-size:15px;font-weight:700;line-height:1.4;}
+.desc-box{background:#112840;border-radius:12px;padding:14px;font-size:14px;color:var(--t2);line-height:1.7;white-space:pre-wrap;}
+.modal-actions{margin-top:24px;display:flex;flex-direction:column;gap:10px;}
+
+/* ── Toast / Empty ── */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1E3A5F;border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:14px;z-index:500;white-space:nowrap;animation:fadeInOut 2.8s ease forwards;}
+.toast.success{border-color:var(--teal);color:var(--teal);}
+.toast.error{border-color:var(--red);color:var(--red);}
+@keyframes fadeInOut{0%{opacity:0;transform:translateX(-50%) translateY(10px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}75%{opacity:1}100%{opacity:0}}
+.empty{text-align:center;padding:60px 20px;color:var(--t3);font-size:14px;}
+.empty .e-icon{font-size:48px;margin-bottom:12px;}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="spin"></div>
+  <p>正在連線 LINE…</p>
+</div>
+
+<div id="register-screen" style="display:none">
+  <div class="reg-card">
+    <div class="logo"><h1>HertzQuest</h1><p>歡迎！請填寫資料完成學員登記</p></div>
+    <div class="profile-strip">
+      <img id="reg-avatar" src="" alt="">
+      <div><div class="pn" id="reg-display">—</div><div class="ps">LINE 帳號已連結</div></div>
+    </div>
+    <div class="field"><label>真實姓名 *</label><input id="reg-name" placeholder="請輸入真實姓名"></div>
+    <div class="field"><label>聯絡電話 *</label><input id="reg-phone" type="tel" placeholder="0912-345-678"></div>
+    <button class="btn btn-teal" id="reg-btn" onclick="submitRegister()">完成登記，開始報名</button>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="topbar-title">HertzQuest</div>
+    <div class="topbar-user">
+      <div class="username" id="top-name">—</div>
+      <div class="avatar-text" id="top-avatar-text"></div>
+    </div>
+  </div>
+  <div class="content" id="main-content"></div>
+  <div class="tabbar">
+    <button class="tab-btn active" id="tab-sessions" onclick="switchTab('sessions')">
+      <span class="tab-icon">🌊</span><span class="tab-label">即將團練</span>
+    </button>
+    <button class="tab-btn" id="tab-trips" onclick="switchTab('trips')">
+      <span class="tab-icon">🤿</span><span class="tab-label">潛水旅行</span>
+    </button>
+    <button class="tab-btn" id="tab-mine" onclick="switchTab('mine')">
+      <span class="tab-icon">📋</span><span class="tab-label">我的報名</span>
+    </button>
+    <button class="tab-btn" id="tab-profile" onclick="switchTab('profile')">
+      <span class="tab-icon">👤</span><span class="tab-label">個人資料</span>
+    </button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detail-modal" style="display:none" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-inner" id="modal-inner"></div>
+  </div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzBy8q-19g_uRMbaEKRULHcd9xdp0k9Vv3RN0-5xV76cAGHEybC7Y_R0yYwpfS7G1SP1w/exec';
+const LIFF_ID = '2010027559-58ppHoAr';
+const MAX_UNCERT = 4; // 無證名額上限
+
+let profile = null, member = null;
+let sessions = [], trips = [];
+let currentTab = 'sessions';
+let selectedSession = null, selectedTrip = null;
+let selectedCert = null, selectedPlan = null;
+
+// ── Init ──────────────────────────────────────────
+async function init() {
+  try {
+    // 10 秒超時保護
+    await Promise.race([
+      liff.init({ liffId: LIFF_ID }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('LIFF 初始化逾時（10秒）\nLIFF ID: ' + LIFF_ID + '\n請確認 LINE Developer Console 的 Endpoint URL 是否為：\nhttps://karta5216295-droid.github.io/hertzquest/')), 10000))
+    ]);
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    profile = await liff.getProfile();
+    const res = await api({ action:'initMember', lineUid:profile.userId, displayName:profile.displayName, pictureUrl:profile.pictureUrl });
+    if (!res.ok) { showSplashError(res.error); return; }
+    if (res.isNew && !res.justRegistered) { showRegister(); }
+    else { member = res.member; showApp(); }
+  } catch(e) { showSplashError(e.message || '載入失敗，請重新開啟'); }
+}
+
+function showSplashError(msg) {
+  document.getElementById('splash').innerHTML = `<p style="color:#E05050;text-align:center;padding:20px">${msg}<br><br><small>請在 LINE 內開啟此頁面</small></p>`;
+}
+
+function showRegister() {
+  document.getElementById('splash').style.display = 'none';
+  document.getElementById('reg-avatar').src = profile.pictureUrl || '';
+  document.getElementById('reg-display').textContent = profile.displayName;
+  document.getElementById('register-screen').style.display = 'flex';
+}
+
+async function submitRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  if (!name || !phone) { toast('請填寫姓名和電話', 'error'); return; }
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true; btn.textContent = '登記中…';
+  const res = await api({ action:'initMember', lineUid:profile.userId, displayName:profile.displayName, pictureUrl:profile.pictureUrl, realName:name, phone });
+  if (res.ok) { member = res.member; showApp(); }
+  else { toast(res.error || '登記失敗', 'error'); btn.disabled = false; btn.textContent = '完成登記，開始報名'; }
+}
+
+function showApp() {
+  document.getElementById('splash').style.display = 'none';
+  document.getElementById('register-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  const n = member?.realName || profile?.displayName || '學員';
+  document.getElementById('top-name').textContent = n;
+  document.getElementById('top-avatar-text').textContent = n[0] || '?';
+  switchTab('sessions');
+}
+
+// ── Tabs ──────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  ['sessions','trips','mine','profile'].forEach(t => {
+    document.getElementById('tab-'+t)?.classList.toggle('active', t===tab);
+  });
+  renderTab(tab);
+}
+
+async function renderTab(tab) {
+  const el = document.getElementById('main-content');
+
+  if (tab === 'sessions') {
+    el.innerHTML = '<div class="section-pad"><div class="section-title">即將舉行的活動</div><div id="session-list"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>';
+    const res = await api({ action:'getSessions', lineUid:profile.userId });
+    if (!res.ok) { document.getElementById('session-list').innerHTML = '<div class="empty">載入失敗</div>'; return; }
+    sessions = res.sessions || [];
+    renderSessionList();
+
+  } else if (tab === 'trips') {
+    el.innerHTML = '<div class="section-pad"><div class="section-title">潛水旅行行程</div><div id="trip-list"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>';
+    const res = await api({ action:'getTrips', lineUid:profile.userId });
+    if (!res.ok) { document.getElementById('trip-list').innerHTML = '<div class="empty">載入失敗</div>'; return; }
+    trips = res.trips || [];
+    renderTripList();
+
+  } else if (tab === 'mine') {
+    el.innerHTML = '<div class="section-pad"><div class="section-title">我的報名紀錄</div><div id="mine-list"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>';
+    const [sr, tr] = await Promise.all([
+      api({ action:'myEnrollments', lineUid:profile.userId }),
+      api({ action:'myTripEnrollments', lineUid:profile.userId })
+    ]);
+    const listEl = document.getElementById('mine-list');
+    let html = '';
+    if (sr.ok && sr.enrollments && sr.enrollments.length) {
+      html += '<div style="font-size:12px;font-weight:700;color:var(--t3);margin:4px 0 8px">🌊 團練</div>';
+      html += sr.enrollments.map(s => mineSessionCardHTML(s)).join('');
+    }
+    if (tr.ok && tr.enrollments && tr.enrollments.length) {
+      html += '<div style="font-size:12px;font-weight:700;color:var(--t3);margin:16px 0 8px">🤿 旅行</div>';
+      html += tr.enrollments.map(t => myTripCardHTML(t)).join('');
+    }
+    listEl.innerHTML = html || '<div class="empty"><div class="e-icon">📋</div>尚無報名紀錄</div>';
+
+  } else {
+    el.innerHTML = `
+      <div class="section-pad">
+        <div style="background:var(--card);border-radius:20px;border:1px solid var(--border);padding:24px;text-align:center;margin-top:8px">
+          <div style="width:72px;height:72px;border-radius:50%;background:rgba(0,201,177,.15);border:2px solid var(--teal);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:28px;font-weight:900;color:var(--teal)">${(member?.realName||'?')[0]}</div>
+          <div style="font-size:18px;font-weight:900">${member?.realName||'—'}</div>
+          <div style="font-size:13px;color:var(--t3);margin-top:4px">${profile?.displayName||''}</div>
+          <div style="font-size:13px;color:var(--t3);margin-top:2px">${member?.phone||''}</div>
+        </div>
+      </div>`;
+  }
+}
+
+// ── Session List ──────────────────────────────────
+function renderSessionList() {
+  const el = document.getElementById('session-list');
+  if (!sessions.length) {
+    el.innerHTML = '<div class="empty"><div class="e-icon">🌊</div>目前沒有即將到來的活動<br>請持續關注！</div>';
+    return;
+  }
+  el.innerHTML = sessions.map(s => sessionCardHTML(s)).join('');
+}
+
+function sessionCardHTML(s) {
+  const spots = Number(s.spotsLeft);
+  const spotsClass = spots<=0?'spots-full':spots<=3?'spots-few':'spots-ok';
+  const spotsLabel = spots<=0?'名額已滿':`剩 ${spots} 位`;
+  const uncertLeft = Math.max(0, MAX_UNCERT - Number(s.uncertCount||0));
+  return `
+    <div class="session-card ${s.enrolled?'enrolled':''}" onclick="openDetail('${s.id}')">
+      <div class="sc-header">
+        <div class="sc-title">${esc(s.title)}</div>
+        ${s.enrolled?'<div class="enrolled-dot"></div>':''}
+      </div>
+      <div class="sc-meta">
+        <div class="sc-row">📅 ${s.date}${s.time?' · '+s.time:''}</div>
+        <div class="sc-row">📍 ${esc(s.location||'')}</div>
+        ${s.meetingPoint?`<div class="sc-row">🗺 集合：<strong>${esc(s.meetingPoint)}</strong></div>`:''}
+      </div>
+      <div class="cert-spots-row">
+        <div class="cert-spot-box">
+          <div class="csb-label">無證名額</div>
+          <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertLeft}/${MAX_UNCERT}</div>
+        </div>
+        <div class="cert-spot-box">
+          <div class="csb-label">有證名額</div>
+          <div class="csb-num ${spots>0?'csb-ok':'csb-full'}">${spots>0?'開放':'已滿'}</div>
+        </div>
+      </div>
+      <div class="sc-footer">
+        <span class="spots-badge ${spotsClass}">${spotsLabel}</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${s.price?`<span class="price-chip">NT$ ${s.price}</span>`:'<span class="price-chip" style="color:var(--teal)">免費</span>'}
+          ${s.coach?`<span class="coach-chip">${esc(s.coach)}</span>`:''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function mineSessionCardHTML(s) {
+  const certLabel = s.certLevel ? certName(s.certLevel) : '';
+  return `
+    <div class="session-card enrolled">
+      <div class="sc-header"><div class="sc-title">${esc(s.title)}</div></div>
+      <div class="sc-meta">
+        <div class="sc-row">📅 ${s.date}${s.time?' · '+s.time:''}</div>
+        <div class="sc-row">📍 ${esc(s.location||'')}</div>
+        ${certLabel?`<div class="sc-row">🪪 ${certLabel}</div>`:''}
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn-sm" style="border-color:var(--red);color:var(--red)" onclick="cancelEnroll('${s.id}')">取消報名</button>
+      </div>
+    </div>`;
+}
+
+// ── Session Detail ────────────────────────────────
+function openDetail(sessionId) {
+  selectedSession = sessions.find(s => s.id===sessionId);
+  if (!selectedSession) return;
+  selectedCert = null;
+  const s = selectedSession;
+  const spots = Number(s.spotsLeft);
+  const enrolled = s.enrolled;
+  const uncertLeft = Math.max(0, MAX_UNCERT - Number(s.uncertCount||0));
+
+  let actionHTML = '';
+  if (enrolled) {
+    const certLabel = s.certLevel ? certName(s.certLevel) : '';
+    actionHTML = `
+      <div style="background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--teal);margin-bottom:10px">
+        ✅ 您已報名${certLabel?' · '+certLabel:''}
+      </div>
+      <button class="btn btn-red" onclick="cancelEnroll('${s.id}')">取消報名</button>`;
+  } else if (spots <= 0 && uncertLeft <= 0) {
+    actionHTML = `<button class="btn btn-outline" disabled>名額已滿</button>`;
+  } else {
+    actionHTML = `
+      <div style="font-size:13px;color:var(--t3);margin-bottom:6px">選擇您的證照等級：</div>
+      <div class="select-grid" id="cert-grid">
+        <button class="select-btn ${uncertLeft<=0?'':''}${uncertLeft<=0?'disabled':''}" ${uncertLeft<=0?'disabled':''} onclick="selectCert('無證',this)">
+          <span class="sb-name">無 證</span>
+          <span class="sb-sub">${uncertLeft<=0?'名額已滿':uncertLeft+'/'+MAX_UNCERT+' 位剩餘'}</span>
+        </button>
+        <button class="select-btn ${spots<=0?'disabled':''}" ${spots<=0?'disabled':''} onclick="selectCert('A1',this)">
+          <span class="sb-name">A1</span>
+          <span class="sb-sub">${spots<=0?'名額已滿':'開放中'}</span>
+        </button>
+        <button class="select-btn ${spots<=0?'disabled':''}" ${spots<=0?'disabled':''} onclick="selectCert('A2pool',this)">
+          <span class="sb-name">A2 Pool</span>
+          <span class="sb-sub">${spots<=0?'名額已滿':'開放中'}</span>
+        </button>
+        <button class="select-btn ${spots<=0?'disabled':''}" ${spots<=0?'disabled':''} onclick="selectCert('A2',this)">
+          <span class="sb-name">A2</span>
+          <span class="sb-sub">${spots<=0?'名額已滿':'開放中'}</span>
+        </button>
+      </div>
+      <button class="btn btn-teal" id="session-enroll-btn" onclick="enroll('${s.id}')" disabled>請先選擇證照等級</button>`;
+  }
+
+  document.getElementById('modal-inner').innerHTML = `
+    <div class="modal-title">${esc(s.title)}</div>
+    <div class="modal-section">
+      <h4>活動資訊</h4>
+      <div class="detail-row"><div class="detail-icon">📅</div><div class="detail-text">${s.date}${s.time?' · '+s.time:''}</div></div>
+      <div class="detail-row"><div class="detail-icon">👤</div><div class="detail-text">教練：${esc(s.coach)||'—'}</div></div>
+      <div class="detail-row"><div class="detail-icon">💰</div><div class="detail-text">${s.price?'NT$ '+s.price:'免費'}</div></div>
+      <div class="detail-row"><div class="detail-icon">👥</div>
+        <div class="detail-text">
+          無證名額：${uncertLeft}/${MAX_UNCERT}&nbsp;&nbsp;有證名額：${spots>0?'開放':'已滿'}
+        </div>
+      </div>
+    </div>
+    ${s.meetingPoint?`<div class="modal-section"><h4>集合地點</h4><div class="meeting-box"><div class="label">請在此集合</div><div class="value">${esc(s.meetingPoint)}</div></div></div>`:''}
+    ${s.location?`<div class="modal-section"><h4>地點</h4><div class="detail-row"><div class="detail-icon">📍</div><div class="detail-text">${esc(s.location)}</div></div></div>`:''}
+    ${s.description?`<div class="modal-section"><h4>活動說明</h4><div class="desc-box">${esc(s.description)}</div></div>`:''}
+    <div class="modal-actions">${actionHTML}<button class="btn btn-outline" onclick="closeModal()">關閉</button></div>`;
+
+  document.getElementById('detail-modal').style.display = 'flex';
+}
+
+function selectCert(cert, btn) {
+  if (btn.disabled) return;
+  selectedCert = cert;
+  document.querySelectorAll('#cert-grid .select-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const enrollBtn = document.getElementById('session-enroll-btn');
+  if (enrollBtn) { enrollBtn.disabled = false; enrollBtn.textContent = '立即報名 · ' + certName(cert); }
+}
+
+function certName(c) {
+  const map = { '無證':'無 證', 'A1':'A1 證照', 'A2pool':'A2 Pool', 'A2':'A2 證照' };
+  return map[c] || c;
+}
+
+// ── Trip List ─────────────────────────────────────
+function renderTripList() {
+  const el = document.getElementById('trip-list');
+  if (!trips.length) {
+    el.innerHTML = '<div class="empty"><div class="e-icon">🤿</div>目前沒有旅行行程<br>請持續關注！</div>';
+    return;
+  }
+  el.innerHTML = trips.map(t => tripCardHTML(t)).join('');
+}
+
+function tripCardHTML(t) {
+  const spots = Number(t.spotsLeft);
+  const spotsClass = spots<=0?'spots-full':spots<=3?'spots-few':'spots-ok';
+  const spotsLabel = spots<=0?'名額已滿':`剩 ${spots} 位`;
+  const dateRange = t.startDate?(t.endDate?`${t.startDate} ～ ${t.endDate}`:t.startDate):'日期待定';
+  return `
+    <div class="trip-card ${t.enrolled?'enrolled':''}" onclick="openTripDetail('${t.id}')">
+      <div class="trip-country">📍 ${esc(t.country||'—')}</div>
+      <div class="sc-header">
+        <div class="trip-title">${esc(t.title)}</div>
+        ${t.enrolled?'<div class="enrolled-dot"></div>':''}
+      </div>
+      <div class="trip-dates">🗓 ${dateRange}</div>
+      <div class="trip-price-row">
+        ${t.priceSingle?`<div class="price-tag"><span class="pt-label">單人</span><span class="pt-amt">NT$ ${Number(t.priceSingle).toLocaleString()}</span></div>`:''}
+        ${t.priceCouple?`<div class="price-tag"><span class="pt-label">雙人團報</span><span class="pt-amt">NT$ ${Number(t.priceCouple).toLocaleString()}</span></div>`:''}
+      </div>
+      <div class="trip-footer">
+        <span class="spots-badge ${spotsClass}">${spotsLabel}</span>
+        <span class="trip-no-flight">✈️ 機票自理</span>
+      </div>
+    </div>`;
+}
+
+function myTripCardHTML(t) {
+  const dateRange = t.startDate?(t.endDate?`${t.startDate} ～ ${t.endDate}`:t.startDate):'日期待定';
+  const planLabel = t.myPlan==='couple'?'雙人團報':'單人方案';
+  const price = t.myPlan==='couple'?t.priceCouple:t.priceSingle;
+  return `
+    <div class="trip-card enrolled">
+      <div class="trip-country">📍 ${esc(t.country||'—')}</div>
+      <div class="trip-title">${esc(t.title)}</div>
+      <div class="trip-dates">🗓 ${dateRange}</div>
+      <div style="margin:6px 0;font-size:12px;color:var(--teal)">✅ ${planLabel}${price?' · NT$ '+Number(price).toLocaleString():''}</div>
+      <div style="margin-top:8px">
+        <button class="btn-sm" style="border-color:var(--red);color:var(--red)" onclick="cancelTripEnroll('${t.id}')">取消報名</button>
+      </div>
+    </div>`;
+}
+
+// ── Trip Detail ───────────────────────────────────
+function openTripDetail(tripId) {
+  selectedTrip = trips.find(t => t.id===tripId);
+  if (!selectedTrip) return;
+  selectedPlan = null;
+  const t = selectedTrip;
+  const spots = Number(t.spotsLeft);
+  const enrolled = t.enrolled;
+  const dateRange = t.startDate?(t.endDate?`${t.startDate} ～ ${t.endDate}`:t.startDate):'日期待定';
+
+  let actionHTML = '';
+  if (enrolled) {
+    const planLabel = t.myPlan==='couple'?'雙人團報':'單人方案';
+    actionHTML = `
+      <div style="background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--teal);margin-bottom:10px">
+        ✅ 您已報名 · ${planLabel}
+      </div>
+      <button class="btn btn-red" onclick="cancelTripEnroll('${t.id}')">取消報名</button>`;
+  } else if (spots <= 0) {
+    actionHTML = `<button class="btn btn-outline" disabled>名額已滿</button>`;
+  } else {
+    const hasBoth = t.priceSingle && t.priceCouple;
+    actionHTML = `
+      <div style="font-size:13px;color:var(--t3);margin-bottom:6px">選擇方案：</div>
+      <div class="select-grid" id="plan-grid" style="grid-template-columns:${hasBoth?'1fr 1fr':'1fr'}">
+        ${t.priceSingle?`<button class="select-btn" onclick="selectPlan('single',this)">
+          <span class="sb-name">單人方案</span>
+          <span class="sb-sub">NT$ ${Number(t.priceSingle).toLocaleString()}</span>
+        </button>`:''}
+        ${t.priceCouple?`<button class="select-btn" onclick="selectPlan('couple',this)">
+          <span class="sb-name">雙人團報</span>
+          <span class="sb-sub">NT$ ${Number(t.priceCouple).toLocaleString()}/人</span>
+        </button>`:''}
+      </div>
+      <button class="btn btn-teal" id="trip-enroll-btn" onclick="enrollTrip('${t.id}')" disabled>請先選擇方案</button>`;
+  }
+
+  document.getElementById('modal-inner').innerHTML = `
+    <div style="font-size:11px;color:var(--t3);font-weight:700;letter-spacing:.5px;margin-bottom:4px">📍 ${esc(t.country||'—')}</div>
+    <div class="modal-title">${esc(t.title)}</div>
+    <div class="modal-section">
+      <h4>行程資訊</h4>
+      <div class="detail-row"><div class="detail-icon">🗓</div><div class="detail-text">${dateRange}</div></div>
+      <div class="detail-row"><div class="detail-icon">👥</div><div class="detail-text">剩餘名額：${spots}${t.maxSpots?'/'+t.maxSpots:''} 位</div></div>
+      <div class="detail-row"><div class="detail-icon">✈️</div><div class="detail-text" style="color:var(--gold)">機票費用自理（不含機票）</div></div>
+    </div>
+    <div class="modal-section">
+      <h4>費用方案</h4>
+      ${t.priceSingle?`<div class="detail-row"><div class="detail-icon">🧑</div><div class="detail-text">單人方案：<strong style="color:var(--gold)">NT$ ${Number(t.priceSingle).toLocaleString()}</strong></div></div>`:''}
+      ${t.priceCouple?`<div class="detail-row"><div class="detail-icon">👫</div><div class="detail-text">雙人團報：<strong style="color:var(--gold)">NT$ ${Number(t.priceCouple).toLocaleString()}</strong>/人</div></div>`:''}
+    </div>
+    ${t.itinerary?`<div class="modal-section"><h4>詳細行程</h4><div class="desc-box">${esc(t.itinerary)}</div></div>`:''}
+    ${t.inclusions?`<div class="modal-section"><h4>費用包含</h4><div class="desc-box">${esc(t.inclusions)}</div></div>`:''}
+    ${t.notes?`<div class="modal-section"><h4>備註</h4><div class="desc-box">${esc(t.notes)}</div></div>`:''}
+    <div class="modal-actions">${actionHTML}<button class="btn btn-outline" onclick="closeModal()">關閉</button></div>`;
+
+  document.getElementById('detail-modal').style.display = 'flex';
+}
+
+function selectPlan(plan, btn) {
+  selectedPlan = plan;
+  document.querySelectorAll('#plan-grid .select-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const enrollBtn = document.getElementById('trip-enroll-btn');
+  if (enrollBtn) { enrollBtn.disabled = false; enrollBtn.textContent = '報名 · '+(plan==='couple'?'雙人團報':'單人方案'); }
+}
+
+function closeModal(e) {
+  if (!e || e.target===document.getElementById('detail-modal')) {
+    document.getElementById('detail-modal').style.display = 'none';
+    selectedCert = null; selectedPlan = null;
+  }
+}
+
+// ── Enroll ────────────────────────────────────────
+function enroll(sessionId) {
+  if (!selectedCert) { toast('請先選擇證照等級', 'error'); return; }
+  // 顯示確認步驟（輸入匯款後五碼）
+  const s = sessions.find(s=>s.id===sessionId);
+  document.getElementById('modal-inner').innerHTML = `
+    <div class="modal-title">確認報名</div>
+    <div class="modal-section">
+      <h4>報名摘要</h4>
+      <div class="detail-row"><div class="detail-icon">📌</div><div class="detail-text">${esc(s?.title||'')}</div></div>
+      <div class="detail-row"><div class="detail-icon">📅</div><div class="detail-text">${s?.date||''}${s?.time?' · '+s.time:''}</div></div>
+      <div class="detail-row"><div class="detail-icon">🪪</div><div class="detail-text">證照等級：${certName(selectedCert)}</div></div>
+      ${s?.price?`<div class="detail-row"><div class="detail-icon">💰</div><div class="detail-text">費用：NT$ ${s.price}</div></div>`:''}
+    </div>
+    <div class="modal-section">
+      <h4>匯款資訊</h4>
+      <div style="background:#112840;border:1px solid var(--teal);border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:13px;color:var(--t2);line-height:1.9">
+        玉山銀行（808）<br>帳號：0772976015466
+      </div>
+      <div class="field">
+        <label>匯款後五碼 *</label>
+        <input id="transfer-code-input" placeholder="請輸入您匯款帳號後五碼" maxlength="5" type="text" inputmode="numeric" pattern="[0-9]*">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-teal" id="confirm-enroll-btn" onclick="submitEnroll('${sessionId}')">確認報名</button>
+      <button class="btn btn-outline" onclick="openDetail('${sessionId}')">返回</button>
+    </div>`;
+}
+
+async function submitEnroll(sessionId) {
+  const transferCode = (document.getElementById('transfer-code-input')?.value || '').trim();
+  if (!transferCode) { toast('請輸入匯款後五碼', 'error'); return; }
+  if (!/^\d{5}$/.test(transferCode)) { toast('請輸入5位數字', 'error'); return; }
+  const confirmBtn = document.getElementById('confirm-enroll-btn');
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '報名中…'; }
+  const res = await api({ action:'enrollSession', lineUid:profile.userId, sessionId, certLevel:selectedCert, transferCode });
+  if (res.ok) {
+    const s = sessions.find(s=>s.id===sessionId);
+    if (s) {
+      s.enrolled = true; s.certLevel = selectedCert;
+      s.spotsLeft = Math.max(0, Number(s.spotsLeft)-1);
+      if (selectedCert === '無證') s.uncertCount = (Number(s.uncertCount)||0)+1;
+    }
+    // 顯示報名成功畫面（含匯款資訊）
+    document.getElementById('modal-inner').innerHTML = `
+      <div class="modal-title" style="color:var(--teal)">✅ 報名成功！</div>
+      <div class="modal-section">
+        <div style="background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.9;color:var(--t2)">
+          <div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:6px">📌 ${esc(s?.title||'')}</div>
+          <div>🪪 ${certName(selectedCert)}</div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,201,177,.2);font-size:13px">
+            💳 匯款資訊：玉山銀行(808) 0772976015466<br>
+            <span style="color:var(--teal);font-weight:700">後五碼：${esc(transferCode)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal()">關閉</button>
+      </div>`;
+    renderTab(currentTab);
+  } else {
+    toast(res.error||'報名失敗', 'error');
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = '確認報名'; }
+  }
+}
+
+async function cancelEnroll(sessionId) {
+  if (!confirm('確認取消報名？')) return;
+  const res = await api({ action:'cancelEnroll', lineUid:profile.userId, sessionId });
+  if (res.ok) {
+    const s = sessions.find(s=>s.id===sessionId);
+    if (s) { s.enrolled = false; s.spotsLeft = Number(s.spotsLeft)+1; if(s.certLevel==='無證')s.uncertCount=Math.max(0,(s.uncertCount||0)-1); }
+    closeModal(); toast('已取消報名', 'success'); renderTab(currentTab);
+  } else toast(res.error||'取消失敗', 'error');
+}
+
+async function enrollTrip(tripId) {
+  if (!selectedPlan) { toast('請先選擇方案', 'error'); return; }
+  const btn = document.getElementById('trip-enroll-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '報名中…'; }
+  const res = await api({ action:'enrollTrip', lineUid:profile.userId, tripId, plan:selectedPlan });
+  if (res.ok) {
+    const t = trips.find(t=>t.id===tripId);
+    if (t) { t.enrolled = true; t.myPlan = selectedPlan; t.spotsLeft = Math.max(0, Number(t.spotsLeft)-1); }
+    closeModal(); toast('✅ 旅行報名成功！', 'success'); renderTab(currentTab);
+  } else {
+    toast(res.error||'報名失敗', 'error');
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+async function cancelTripEnroll(tripId) {
+  if (!confirm('確認取消旅行報名？')) return;
+  const res = await api({ action:'cancelTripEnroll', lineUid:profile.userId, tripId });
+  if (res.ok) {
+    const t = trips.find(t=>t.id===tripId);
+    if (t) { t.enrolled = false; t.myPlan = null; t.spotsLeft = Number(t.spotsLeft)+1; }
+    closeModal(); toast('已取消旅行報名', 'success'); renderTab(currentTab);
+  } else toast(res.error||'取消失敗', 'error');
+}
+
+// ── Utils ─────────────────────────────────────────
+async function api(data) {
+  try {
+    const r = await fetch(GAS_URL, { method:'POST', body:JSON.stringify(data) });
+    return r.json();
+  } catch(e) { return {ok:false,error:'網路錯誤'}; }
+}
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = 'toast '+type; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+init();
+</script>
+</body>
+</html>

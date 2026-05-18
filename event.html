@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HertzQuest 活動報名</title>
+<script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Noto Sans TC', sans-serif;
+    background: #0A1628;
+    color: #F0F0FF;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .card {
+    background: #0D2240;
+    border-radius: 20px;
+    border: 1px solid #1E4060;
+    padding: 24px;
+    margin-bottom: 14px;
+  }
+  h2 { font-size: 16px; font-weight: 700; color: #00C9B1; margin-bottom: 4px; }
+  .meta { font-size: 12px; color: #7FBBCC; margin-bottom: 8px; line-height: 1.8; }
+  .desc { font-size: 14px; color: #F0F0FF; line-height: 1.6; }
+
+  .info-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .info-chip {
+    background: #112840;
+    border: 1px solid #1E4060;
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 12px;
+    color: #7FBBCC;
+  }
+  .spots { color: #FFB030; font-weight: 700; }
+
+  .btn-enroll {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    background: #00C9B1;
+    color: #0A1628;
+    border: none;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 900;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: opacity .2s;
+  }
+  .btn-enroll:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .locked-box {
+    text-align: center;
+    padding: 32px 20px;
+    background: #0D2240;
+    border-radius: 20px;
+    border: 1px solid #1E4060;
+  }
+  .locked-box .icon  { font-size: 56px; margin-bottom: 16px; }
+  .locked-box h3     { font-size: 18px; font-weight: 700; color: #FFB030; margin-bottom: 8px; }
+  .locked-box p      { font-size: 13px; color: #7FBBCC; line-height: 1.7; }
+  .locked-box .link  {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 12px 24px;
+    background: rgba(0,201,177,0.15);
+    border: 1px solid #00C9B1;
+    color: #00C9B1;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .msg {
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    text-align: center;
+    display: none;
+  }
+  .msg.success { background: rgba(0,201,177,0.15); border: 1px solid #00C9B1; color: #00C9B1; }
+  .msg.error   { background: rgba(224,80,80,0.15);  border: 1px solid #E05050; color: #E05050; }
+  .msg.show    { display: block; }
+
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #7FBBCC;
+    font-size: 14px;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid #1E4060;
+    border-top-color: #00C9B1;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    margin: 0 auto 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  正在驗證身分…
+</div>
+
+<!-- 主內容（通過驗證後顯示） -->
+<div id="main" style="display:none">
+  <div class="card">
+    <div id="event-title" style="font-size:20px;font-weight:900;margin-bottom:8px">載入中…</div>
+    <div class="info-row" id="info-row"></div>
+    <div class="desc" id="event-desc"></div>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div style="font-size:13px;color:#7FBBCC;margin-bottom:6px">報名者</div>
+    <div style="font-size:16px;font-weight:700" id="member-name">—</div>
+    <div style="font-size:12px;color:#7FBBCC;margin-top:2px" id="member-uid"></div>
+
+    <button class="btn-enroll" id="enroll-btn" onclick="enroll()" disabled>載入中…</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<!-- 未通過驗證 -->
+<div id="locked" style="display:none">
+  <div class="locked-box">
+    <div class="icon">🔒</div>
+    <h3>需要身分驗證</h3>
+    <p>
+      只有通過身分驗證的學員<br>
+      才能報名活動。<br><br>
+      請先完成學員身分登記，<br>
+      等待教練審核通過後即可報名。
+    </p>
+    <a href="#" id="register-link" class="link">前往身分驗證登記</a>
+  </div>
+</div>
+
+<script>
+const LIFF_ID  = 'YOUR_LIFF_ID_EVENT';  // 替換為活動頁面的 LIFF ID
+const GAS_URL  = 'YOUR_GAS_DEPLOYED_URL'; // 替換為部署後的 GAS 網址
+const REGISTER_URL = 'YOUR_REGISTER_LIFF_URL'; // 替換為報名頁面的 LIFF URL
+
+let lineUid = '';
+let memberName = '';
+let currentEventId = '';
+
+async function init() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+
+    const profile = await liff.getProfile();
+    lineUid    = profile.userId;
+    memberName = profile.displayName;
+
+    // 從網址取得活動 ID
+    const params  = new URLSearchParams(location.search);
+    currentEventId = params.get('eventId') || params.get('eid') || '';
+
+    // 並行：白名單驗證 + 取得活動資訊
+    const [wlRes, evRes] = await Promise.all([
+      callGAS({ action: 'check_whitelist', lineUid }),
+      currentEventId ? callGAS({ action: 'get_events', activeOnly: false }) : Promise.resolve({ ok: false }),
+    ]);
+
+    hide('loading');
+
+    if (!wlRes.approved) {
+      document.getElementById('register-link').href = REGISTER_URL;
+      show('locked');
+      return;
+    }
+
+    // 填入學員資訊
+    memberName = wlRes.name || memberName;
+    document.getElementById('member-name').textContent = memberName;
+    document.getElementById('member-uid').textContent  = 'LINE UID: ' + lineUid.slice(0, 12) + '…';
+
+    // 填入活動資訊
+    if (evRes.ok && currentEventId) {
+      const ev = evRes.events.find(e => e.id === currentEventId);
+      if (ev) renderEvent(ev);
+      else {
+        document.getElementById('event-title').textContent = '找不到活動';
+        document.getElementById('enroll-btn').textContent = '活動不存在';
+      }
+    } else if (!currentEventId) {
+      // 沒有指定活動 ID — 顯示所有活動列表（可選擇性實作）
+      document.getElementById('event-title').textContent = '活動清單';
+      document.getElementById('enroll-btn').textContent = '請從活動連結進入';
+    }
+
+    show('main');
+
+  } catch (err) {
+    hide('loading');
+    document.getElementById('loading').innerHTML =
+      '<p style="color:#E05050">載入失敗：' + err.message + '</p>';
+    show('loading');
+  }
+}
+
+function renderEvent(ev) {
+  document.getElementById('event-title').textContent = ev.title;
+  document.getElementById('event-desc').textContent  = ev.description || '';
+
+  const infoRow = document.getElementById('info-row');
+  const chips = [
+    ev.date     ? `📅 ${ev.date}` : null,
+    ev.location ? `📍 ${ev.location}` : null,
+    ev.price    ? `NT$ ${ev.price}` : '免費',
+    `剩餘名額：${ev.spotsLeft}`,
+  ].filter(Boolean);
+
+  infoRow.innerHTML = chips.map(c =>
+    `<span class="info-chip${c.includes('剩餘') ? ' spots' : ''}">${c}</span>`
+  ).join('');
+
+  const btn = document.getElementById('enroll-btn');
+  if (Number(ev.spotsLeft) <= 0) {
+    btn.textContent = '名額已滿';
+    btn.disabled    = true;
+  } else if (!ev.isActive) {
+    btn.textContent = '報名未開放';
+    btn.disabled    = true;
+  } else {
+    btn.textContent = '立即報名';
+    btn.disabled    = false;
+  }
+}
+
+async function enroll() {
+  if (!currentEventId) return;
+  const btn = document.getElementById('enroll-btn');
+  btn.disabled    = true;
+  btn.textContent = '報名中…';
+  hideMsg();
+
+  try {
+    const res = await callGAS({ action: 'enroll_event', lineUid, eventId: currentEventId });
+    if (res.ok) {
+      showMsg('✅ ' + res.message, 'success');
+      btn.textContent = '已報名';
+    } else {
+      showMsg('⚠️ ' + res.error, 'error');
+      btn.disabled    = false;
+      btn.textContent = '立即報名';
+    }
+  } catch {
+    showMsg('網路錯誤，請稍後再試', 'error');
+    btn.disabled    = false;
+    btn.textContent = '立即報名';
+  }
+}
+
+async function callGAS(data) {
+  const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(data) });
+  return res.json();
+}
+
+function show(id) { document.getElementById(id).style.display = 'block'; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+function showMsg(text, type) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg ' + type + ' show';
+}
+function hideMsg() { document.getElementById('msg').className = 'msg'; }
+
+init();
+</script>
+</body>
+</html>
