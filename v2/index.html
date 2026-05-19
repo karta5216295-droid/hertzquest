@@ -256,7 +256,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <input id="reg-coach" placeholder="請輸入教練姓名">
     </div>
     <div class="field">
-      <label>個人 LINE ID（選填）</label>
+      <label>個人 LINE ID</label>
       <input id="reg-line-id" placeholder="請輸入你的 LINE ID">
     </div>
     <button class="btn btn-teal" id="reg-btn" onclick="submitRegister()">完成登記</button>
@@ -406,7 +406,7 @@ async function submitRegister() {
   const firstClassDate = document.getElementById('reg-first-class').value;
   const coachName = document.getElementById('reg-coach').value.trim();
   const lineId = document.getElementById('reg-line-id').value.trim();
-  if (!name || !phone || !firstClassDate || !coachName) { toast('請填寫姓名、電話、上課日期和教練姓名', 'error'); return; }
+  if (!name || !phone || !firstClassDate || !coachName || !lineId) { toast('請填寫所有欄位（包含 LINE ID）', 'error'); return; }
   const btn = document.getElementById('reg-btn');
   btn.disabled = true; btn.textContent = '登記中…';
   const res = await api({ action:'initMember', lineUid:profile.userId, displayName:profile.displayName, pictureUrl:profile.pictureUrl, realName:name, phone, firstClassDate, coachName, lineId });
