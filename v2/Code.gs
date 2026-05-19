@@ -2,7 +2,7 @@
 // HertzQuest 團練系統 — Backend (Google Apps Script)
 // ================================================================
 const CFG = {
-  SHEET_ID:   '1Vc0d6T0q-7NQav4ZJpfrJZ7e1BA-vbERMMmsFsyOMye',
+  SHEET_ID:   '1Vc0d6T0q-7NQav4ZJpfrJZ7e1BA-vbERMMmsFsyOMyE',
   LINE_TOKEN: 'REPLACE_WITH_LINE_TOKEN',
   COACH_PWD:  'hertz2024',
   LIFF_ID:    '2010027559-58ppHoAr',
