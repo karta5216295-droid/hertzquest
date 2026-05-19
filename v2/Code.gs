@@ -41,6 +41,8 @@ function dispatch(d) {
     coachLogin, allSessions, createSession, updateSession, deleteSession,
     getEnrollList, notifyStudents, confirmPayment, getMembers, deleteMember,
     getAnnouncements, createAnnouncement, deleteAnnouncement,
+    createTrip, getTrips, enrollTrip, cancelTripEnroll, myTripEnrollments,
+    getTripEnrollList, updateTrip, deleteTrip,
   };
   const fn = map[d.action];
   if (!fn) return {ok:false,error:'Unknown action: '+d.action};
@@ -81,7 +83,7 @@ function getSessions({lineUid}) {
 
   const enrolled = new Set();
   eRows.slice(1).forEach(r => {
-    if (r[C.E.UID-1]===lineUid && r[C.E.STATUS-1]==='confirmed') enrolled.add(r[C.E.SID-1]);
+    if (r[C.E.UID-1]===lineUid) enrolled.add(r[C.E.SID-1]);
   });
 
   const sessions = sRows.slice(1)
@@ -102,7 +104,7 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode}) {
   // 確認未重複報名
   const eSheet = sh_('Enrollments');
   const eRows = eSheet.getDataRange().getValues();
-  if (eRows.slice(1).find(r => r[C.E.SID-1]===sessionId && r[C.E.UID-1]===lineUid && r[C.E.STATUS-1]==='confirmed')) {
+  if (eRows.slice(1).find(r => r[C.E.SID-1]===sessionId && r[C.E.UID-1]===lineUid)) {
     return {ok:false, error:'您已報名此活動'};
   }
 
@@ -118,7 +120,7 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode}) {
 
   // 寫入報名
   const id='E'+Date.now();
-  eSheet.appendRow([id,sessionId,lineUid,member[C.M.NAME-1],member[C.M.PHONE-1],'confirmed',new Date(),transferCode||'','pending']);
+  eSheet.appendRow([id,sessionId,lineUid,member[C.M.NAME-1],member[C.M.PHONE-1],certLevel||'',new Date(),transferCode||'','pending']);
   sSheet.getRange(sRowIdx, C.S.LEFT).setValue(Number(sData[C.S.LEFT-1])-1);
 
   // LINE 確認通知
@@ -142,7 +144,7 @@ function myEnrollments({lineUid}) {
   sRows.slice(1).forEach(r => { sMap[r[C.S.ID-1]]=r; });
 
   const list = eRows.slice(1)
-    .filter(r => r[C.E.UID-1]===lineUid && r[C.E.STATUS-1]==='confirmed')
+    .filter(r => r[C.E.UID-1]===lineUid)
     .map(r => { const s=sMap[r[C.E.SID-1]]; return s ? toSession(s) : null; })
     .filter(Boolean)
     .sort((a,b) => new Date(a.date)-new Date(b.date));
@@ -154,8 +156,8 @@ function cancelEnroll({lineUid, sessionId}) {
   const eSheet = sh_('Enrollments');
   const eRows = eSheet.getDataRange().getValues();
   for (let i=1;i<eRows.length;i++) {
-    if (eRows[i][C.E.SID-1]===sessionId && eRows[i][C.E.UID-1]===lineUid && eRows[i][C.E.STATUS-1]==='confirmed') {
-      eSheet.getRange(i+1, C.E.STATUS).setValue('cancelled');
+    if (eRows[i][C.E.SID-1]===sessionId && eRows[i][C.E.UID-1]===lineUid) {
+      eSheet.deleteRow(i+1);
       // 還名額
       const sSheet = sh_('Sessions');
       const sRows = sSheet.getDataRange().getValues();
@@ -181,7 +183,7 @@ function allSessions({password}) {
   const sRows = sh_('Sessions').getDataRange().getValues();
   const eRows = sh_('Enrollments').getDataRange().getValues();
   const cnt = {};
-  eRows.slice(1).forEach(r => { if(r[C.E.STATUS-1]==='confirmed') cnt[r[C.E.SID-1]]=(cnt[r[C.E.SID-1]]||0)+1; });
+  eRows.slice(1).forEach(r => { if(r[C.E.UID-1]) cnt[r[C.E.SID-1]]=(cnt[r[C.E.SID-1]]||0)+1; });
 
   const sessions = sRows.slice(1)
     .sort((a,b) => new Date(b[C.S.DATE-1])-new Date(a[C.S.DATE-1]))
@@ -252,19 +254,23 @@ function getEnrollList({password, sessionId}) {
   if (!auth(password)) return noAuth();
   const rows = sh_('Enrollments').getDataRange().getValues();
   // 支援新舊兩種欄位格式：有 STATUS 欄或無
-  const list = rows.slice(1)
-    .filter(r => r[C.E.SID-1]===sessionId && r[0] && String(r[0]).length>0)
-    .map((r,i) => ({
-      id:           String(r[C.E.ID-1]||''),
-      rowIndex:     i+2, // 1-based sheet row for fallback
-      name:         r[C.E.NAME-1],
-      phone:        r[C.E.PHONE-1],
-      at:           String(r[C.E.AT-1]).slice(0,10),
-      lineUid:      String(r[C.E.UID-1]||''),
-      certLevel:    r[C.E.CERT-1]||'',
-      transferCode: r[C.E.TRANSFER-1]||'',
-      paymentStatus:r[C.E.PAYMENT-1]||'pending',
-    }));
+  const list = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (r[C.E.SID-1]===sessionId && r[0] && String(r[0]).length>0) {
+      list.push({
+        id:           String(r[C.E.ID-1]||''),
+        rowIndex:     i+1, // 實際的 1-based Sheet 行號
+        name:         r[C.E.NAME-1],
+        phone:        r[C.E.PHONE-1],
+        at:           String(r[C.E.AT-1]).slice(0,10),
+        lineUid:      String(r[C.E.UID-1]||''),
+        certLevel:    r[C.E.CERT-1]||'',
+        transferCode: r[C.E.TRANSFER-1]||'',
+        paymentStatus:r[C.E.PAYMENT-1]||'pending',
+      });
+    }
+  }
   return {ok:true, list};
 }
 
@@ -304,7 +310,7 @@ function notifyStudents({password, sessionId, message}) {
   if (!auth(password)) return noAuth();
   const rows = sh_('Enrollments').getDataRange().getValues();
   const uids = rows.slice(1)
-    .filter(r => r[C.E.SID-1]===sessionId && r[C.E.STATUS-1]==='confirmed')
+    .filter(r => r[C.E.SID-1]===sessionId && r[C.E.UID-1])
     .map(r => r[C.E.UID-1]);
   uids.forEach(uid => sendLine(uid, message));
   return {ok:true, sent:uids.length};
@@ -313,6 +319,7 @@ function notifyStudents({password, sessionId, message}) {
 // ── 工具 ─────────────────────────────────────────────────────
 function auth(p) { return p===CFG.COACH_PWD; }
 function noAuth() { return {ok:false,error:'未授權'}; }
+function checkPassword(p) { return p===CFG.COACH_PWD ? {ok:true} : {ok:false,error:'未授權'}; }
 function sh_(name) { return SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName(name); }
 
 function toSession(r) {
@@ -418,8 +425,237 @@ function setupSheets() {
       sh.setFrozenRows(1);
     }
   };
-  init('Members',  ['ID','LINE_UID','真實姓名','電話','LINE暱稱','頭像','狀態','加入時間'],'#1565C0');
-  init('Sessions', ['ID','標題','日期','時間','地點','集合地點','說明','教練','名額上限','剩餘名額','費用','開放報名','建立時間'],'#2E7D32');
-  init('Enrollments',['ID','活動ID','LINE_UID','姓名','電話','狀態','報名時間'],'#6A1B9A');
-  return '✅ Sheets 初始化完成！共建立 Members、Sessions、Enrollments 三張表。';
+  init('Members',     ['ID','LINE_UID','真實姓名','電話','LINE暱稱','頭像','狀態','加入時間'],'#1565C0');
+  init('Sessions',    ['ID','標題','日期','時間','地點','集合地點','說明','教練','名額上限','剩餘名額','費用','開放報名','建立時間'],'#2E7D32');
+  init('Enrollments', ['ID','活動ID','LINE_UID','姓名','電話','證照等級','報名時間','轉帳末5碼','收款狀態'],'#6A1B9A');
+  init('Announcements',['id','text','active'],'#4A148C');
+  initTripSheets();
+  return '✅ Sheets 初始化完成！';
+}
+
+// ── 旅行功能 ────────────────────────────────────────────────
+
+function formatTime(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    var h = val.getHours().toString().padStart(2,'0');
+    var m = val.getMinutes().toString().padStart(2,'0');
+    return h + ':' + m;
+  }
+  return String(val);
+}
+
+function formatDate(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    var y = val.getFullYear();
+    var mo = (val.getMonth()+1).toString().padStart(2,'0');
+    var d = val.getDate().toString().padStart(2,'0');
+    return y + '-' + mo + '-' + d;
+  }
+  return String(val);
+}
+
+function initTripSheets() {
+  var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+  if (!ss.getSheetByName('Trips')) {
+    var sh = ss.insertSheet('Trips');
+    sh.appendRow(['id','country','title','itinerary','inclusions','priceSingle','priceCouple','startDate','endDate','maxSpots','active','notes','createdAt']);
+  }
+  if (!ss.getSheetByName('TripEnrollments')) {
+    var sh2 = ss.insertSheet('TripEnrollments');
+    sh2.appendRow(['id','tripId','memberId','memberName','memberPhone','plan','enrolledAt']);
+  }
+}
+
+function createTrip(data) {
+  try {
+    var p = checkPassword(data.password);
+    if (!p.ok) return p;
+    initTripSheets();
+    var sh = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('Trips');
+    var id = 'trip_' + Date.now();
+    sh.appendRow([id, data.country||'', data.title||'', data.itinerary||'', data.inclusions||'',
+      data.priceSingle||0, data.priceCouple||0, data.startDate||'', data.endDate||'',
+      data.maxSpots||20, true, data.notes||'', new Date().toISOString()]);
+    return { ok: true, message: '旅行已建立', id: id };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function getTrips(data) {
+  try {
+    initTripSheets();
+    var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    var sh = ss.getSheetByName('Trips');
+    var rows = sh.getDataRange().getValues();
+    if (rows.length <= 1) return { ok: true, trips: [] };
+    var headers = rows[0];
+    var trips = rows.slice(1).filter(function(r){ return r[0]; }).map(function(r) {
+      var obj = {};
+      headers.forEach(function(h,i){ obj[h] = r[i]; });
+      if (obj.startDate instanceof Date) obj.startDate = formatDate(obj.startDate);
+      if (obj.endDate instanceof Date) obj.endDate = formatDate(obj.endDate);
+      return obj;
+    });
+    var enrollSh = ss.getSheetByName('TripEnrollments');
+    var enrollRows = enrollSh ? enrollSh.getDataRange().getValues().slice(1).filter(function(r){return r[0];}) : [];
+    var lineUid = data.lineUid;
+    trips.forEach(function(t) {
+      var myEnrolls = enrollRows.filter(function(r){ return String(r[1]) === String(t.id); });
+      t.enrollCount = myEnrolls.length;
+      t.spotsLeft = Math.max(0, Number(t.maxSpots||20) - t.enrollCount);
+      if (lineUid) {
+        var myRow = myEnrolls.find(function(r){ return String(r[2]) === String(lineUid); });
+        t.enrolled = !!myRow;
+        t.myPlan = myRow ? myRow[5] : null;
+      }
+    });
+    var result = data.password
+      ? trips
+      : trips.filter(function(t){ return t.active === true || t.active === 'TRUE'; });
+    return { ok: true, trips: result };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function enrollTrip(data) {
+  try {
+    var lineUid = data.lineUid, tripId = data.tripId, plan = data.plan;
+    if (!lineUid || !tripId || !plan) return { ok: false, error: '參數不完整' };
+    var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    var memberSh = ss.getSheetByName('Members');
+    if (!memberSh) return { ok: false, error: '找不到學員資料表' };
+    var memberRows = memberSh.getDataRange().getValues();
+    var memberRow = null;
+    for (var i = 1; i < memberRows.length; i++) {
+      if (String(memberRows[i][C.M.UID-1]) === String(lineUid)) { memberRow = memberRows[i]; break; }
+    }
+    if (!memberRow) return { ok: false, error: '請先完成學員登記' };
+    initTripSheets();
+    var enrollSh = ss.getSheetByName('TripEnrollments');
+    var enrollRows = enrollSh.getDataRange().getValues().slice(1).filter(function(r){ return r[0]; });
+    if (enrollRows.some(function(r){ return String(r[1])===String(tripId) && String(r[2])===String(lineUid); })) {
+      return { ok: false, error: '您已報名此旅行' };
+    }
+    var tripSh = ss.getSheetByName('Trips');
+    var tripRows = tripSh.getDataRange().getValues();
+    var tripRow = null;
+    for (var j = 1; j < tripRows.length; j++) {
+      if (String(tripRows[j][0]) === String(tripId)) { tripRow = tripRows[j]; break; }
+    }
+    if (!tripRow) return { ok: false, error: '找不到旅行' };
+    var maxSpots = Number(tripRow[9] || 20);
+    var currentCount = enrollRows.filter(function(r){ return String(r[1])===String(tripId); }).length;
+    if (currentCount >= maxSpots) return { ok: false, error: '名額已滿' };
+    enrollSh.appendRow(['te_'+Date.now(), tripId, lineUid,
+      memberRow[C.M.NAME-1]||memberRow[C.M.DISPLAY-1]||'',
+      memberRow[C.M.PHONE-1]||'', plan, new Date().toISOString()]);
+    return { ok: true, message: '報名成功' };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function cancelTripEnroll(data) {
+  try {
+    var lineUid = data.lineUid, tripId = data.tripId;
+    if (!lineUid || !tripId) return { ok: false, error: '參數不完整' };
+    initTripSheets();
+    var sh = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('TripEnrollments');
+    var rows = sh.getDataRange().getValues();
+    for (var i = rows.length - 1; i >= 1; i--) {
+      if (String(rows[i][1])===String(tripId) && String(rows[i][2])===String(lineUid)) {
+        sh.deleteRow(i + 1);
+        return { ok: true, message: '已取消報名' };
+      }
+    }
+    return { ok: false, error: '找不到報名紀錄' };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function myTripEnrollments(data) {
+  try {
+    var lineUid = data.lineUid;
+    if (!lineUid) return { ok: false, error: '參數不完整' };
+    initTripSheets();
+    var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    var enrollRows = ss.getSheetByName('TripEnrollments').getDataRange().getValues()
+      .slice(1).filter(function(r){ return r[0] && String(r[2])===String(lineUid); });
+    if (!enrollRows.length) return { ok: true, enrollments: [] };
+    var tripData = ss.getSheetByName('Trips').getDataRange().getValues();
+    var tripHeaders = tripData[0];
+    var tripMap = {};
+    tripData.slice(1).filter(function(r){return r[0];}).forEach(function(r){
+      var obj = {};
+      tripHeaders.forEach(function(h,i){ obj[h] = r[i]; });
+      if (obj.startDate instanceof Date) obj.startDate = formatDate(obj.startDate);
+      if (obj.endDate instanceof Date) obj.endDate = formatDate(obj.endDate);
+      tripMap[String(r[0])] = obj;
+    });
+    var result = enrollRows.map(function(r) {
+      return Object.assign({}, tripMap[String(r[1])]||{}, { myPlan: r[5], enrolledAt: r[6] });
+    });
+    return { ok: true, enrollments: result };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function getTripEnrollList(data) {
+  try {
+    var p = checkPassword(data.password);
+    if (!p.ok) return p;
+    var tripId = data.tripId;
+    if (!tripId) return { ok: false, error: '參數不完整' };
+    initTripSheets();
+    var rows = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('TripEnrollments')
+      .getDataRange().getValues().slice(1)
+      .filter(function(r){ return r[0] && String(r[1])===String(tripId); });
+    var list = rows.map(function(r) {
+      return { id:r[0], tripId:r[1], name:r[3], phone:r[4], plan:r[5], at:r[6] };
+    });
+    return { ok: true, list: list };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function updateTrip(data) {
+  try {
+    var p = checkPassword(data.password);
+    if (!p.ok) return p;
+    initTripSheets();
+    var sh = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('Trips');
+    var rows = sh.getDataRange().getValues();
+    var headers = rows[0];
+    for (var i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(data.tripId)) {
+        if (data.active !== undefined) {
+          var col = headers.indexOf('active');
+          if (col >= 0) sh.getRange(i+1, col+1).setValue(data.active);
+        }
+        return { ok: true };
+      }
+    }
+    return { ok: false, error: '找不到旅行' };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function deleteTrip(data) {
+  try {
+    var p = checkPassword(data.password);
+    if (!p.ok) return p;
+    var tripId = data.tripId;
+    if (!tripId) return { ok: false, error: '參數不完整' };
+    initTripSheets();
+    var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    var sh = ss.getSheetByName('Trips');
+    var rows = sh.getDataRange().getValues();
+    var found = false;
+    for (var i = rows.length - 1; i >= 1; i--) {
+      if (String(rows[i][0]) === String(tripId)) { sh.deleteRow(i + 1); found = true; break; }
+    }
+    if (!found) return { ok: false, error: '找不到旅行' };
+    var esh = ss.getSheetByName('TripEnrollments');
+    if (esh) {
+      var erows = esh.getDataRange().getValues();
+      for (var j = erows.length - 1; j >= 1; j--) {
+        if (String(erows[j][1]) === String(tripId)) esh.deleteRow(j + 1);
+      }
+    }
+    return { ok: true };
+  } catch(e) { return { ok: false, error: e.message }; }
 }
