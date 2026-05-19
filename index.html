@@ -925,7 +925,7 @@ function esc(s) {
 }
 
 function paymentStatusBadge(status) {
-  if (status === 'paid') return `<span style="font-size:10px;font-weight:700;background:rgba(0,201,177,.12);border:1px solid rgba(0,201,177,.3);color:var(--teal);border-radius:6px;padding:2px 8px">✓ 已確認繳費</span>`;
+  if (status === 'confirmed' || status === 'paid') return `<span style="font-size:10px;font-weight:700;background:rgba(0,201,177,.12);border:1px solid rgba(0,201,177,.3);color:var(--teal);border-radius:6px;padding:2px 8px">✓ 已確認繳費</span>`;
   if (status === 'pending') return `<span style="font-size:10px;font-weight:700;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:var(--gold);border-radius:6px;padding:2px 8px">⏳ 待確認</span>`;
   return `<span style="font-size:10px;font-weight:700;background:rgba(192,69,69,.12);border:1px solid rgba(192,69,69,.3);color:var(--red);border-radius:6px;padding:2px 8px">未繳費</span>`;
 }
