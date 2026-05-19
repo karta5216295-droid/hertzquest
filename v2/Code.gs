@@ -2,17 +2,17 @@
 // HertzQuest 團練系統 — Backend (Google Apps Script)
 // ================================================================
 const CFG = {
-  SHEET_ID:   'REPLACE_WITH_SHEET_ID',
+  SHEET_ID:   '1Vc0d6T0q-7NQav4ZJpfrJZ7e1BA-vbERMMmsFsyOMye',
   LINE_TOKEN: 'REPLACE_WITH_LINE_TOKEN',
   COACH_PWD:  'hertz2024',
-  LIFF_ID:    'REPLACE_WITH_LIFF_ID',
+  LIFF_ID:    '2010027559-58ppHoAr',
 };
 
-// Column indices (1-based)
+// Column indices (1-based) — Enrollments 含 CERT 欄（第6欄）
 const C = {
   M: { ID:1,UID:2,NAME:3,PHONE:4,DISPLAY:5,PIC:6,STATUS:7,AT:8 },
   S: { ID:1,TITLE:2,DATE:3,TIME:4,LOC:5,MEET:6,DESC:7,COACH:8,MAX:9,LEFT:10,PRICE:11,ACTIVE:12,AT:13 },
-  E: { ID:1,SID:2,UID:3,NAME:4,PHONE:5,STATUS:6,AT:7,TRANSFER:8,PAYMENT:9 },
+  E: { ID:1,SID:2,UID:3,NAME:4,PHONE:5,CERT:6,AT:7,TRANSFER:8,PAYMENT:9 },
 };
 
 // ── 路由 ──────────────────────────────────────────────────────
@@ -251,32 +251,50 @@ function deleteMember({password, memberId}) {
 function getEnrollList({password, sessionId}) {
   if (!auth(password)) return noAuth();
   const rows = sh_('Enrollments').getDataRange().getValues();
+  // 支援新舊兩種欄位格式：有 STATUS 欄或無
   const list = rows.slice(1)
-    .filter(r => r[C.E.SID-1]===sessionId && r[C.E.STATUS-1]==='confirmed')
-    .map(r => ({
-      id:           r[C.E.ID-1],
+    .filter(r => r[C.E.SID-1]===sessionId && r[0] && String(r[0]).length>0)
+    .map((r,i) => ({
+      id:           String(r[C.E.ID-1]||''),
+      rowIndex:     i+2, // 1-based sheet row for fallback
       name:         r[C.E.NAME-1],
       phone:        r[C.E.PHONE-1],
       at:           String(r[C.E.AT-1]).slice(0,10),
-      lineUid:      r[C.E.UID-1],
+      lineUid:      String(r[C.E.UID-1]||''),
+      certLevel:    r[C.E.CERT-1]||'',
       transferCode: r[C.E.TRANSFER-1]||'',
       paymentStatus:r[C.E.PAYMENT-1]||'pending',
     }));
   return {ok:true, list};
 }
 
-function confirmPayment({password, enrollId, lineUid, sessionId}) {
+function confirmPayment({password, enrollId, lineUid, sessionId, rowIndex}) {
   if (!auth(password)) return noAuth();
   const sh = sh_('Enrollments');
   const rows = sh.getDataRange().getValues();
-  for (let i=1;i<rows.length;i++) {
-    const row = rows[i];
-    const matchById = enrollId && row[C.E.ID-1]===enrollId;
-    const matchByUidSid = !enrollId && lineUid && sessionId &&
-      row[C.E.UID-1]===lineUid && row[C.E.SID-1]===sessionId && row[C.E.STATUS-1]==='confirmed';
-    if (matchById || matchByUidSid) {
-      sh.getRange(i+1, C.E.PAYMENT).setValue('confirmed');
-      return {ok:true};
+  const PAYMENT_COL = C.E.PAYMENT; // 9
+
+  // 1. 直接用行號（最準確）
+  if (rowIndex && rowIndex > 1 && rowIndex <= rows.length) {
+    sh.getRange(rowIndex, PAYMENT_COL).setValue('confirmed');
+    return {ok:true};
+  }
+  // 2. 用 enrollId 查
+  if (enrollId) {
+    for (let i=1;i<rows.length;i++) {
+      if (String(rows[i][C.E.ID-1])===String(enrollId)) {
+        sh.getRange(i+1, PAYMENT_COL).setValue('confirmed');
+        return {ok:true};
+      }
+    }
+  }
+  // 3. 用 lineUid + sessionId 查（備援）
+  if (lineUid && sessionId) {
+    for (let i=1;i<rows.length;i++) {
+      if (String(rows[i][C.E.UID-1])===lineUid && String(rows[i][C.E.SID-1])===sessionId) {
+        sh.getRange(i+1, PAYMENT_COL).setValue('confirmed');
+        return {ok:true};
+      }
     }
   }
   return {ok:false, error:'找不到報名紀錄'};

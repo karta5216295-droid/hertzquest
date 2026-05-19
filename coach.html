@@ -540,7 +540,7 @@ async function openEnrollModal(sessionId, title) {
       ? `<span style="color:#00C9B1;font-size:12px;font-weight:700">✓ 已收款</span>`
       : `<span style="color:#FFB030;font-size:11px">待收款${m.transferCode?' · 末5碼 '+esc(m.transferCode):''}</span>
          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-top:3px">
-           <input type="checkbox" id="pay-cb-${eid}" onchange="confirmPaymentAction('${esc(m.id||'')}','${eid}',this,'${esc(m.lineUid||'')}',currentSessionId)" style="width:14px;height:14px;cursor:pointer;accent-color:#00C9B1">
+           <input type="checkbox" id="pay-cb-${eid}" onchange="confirmPaymentAction('${esc(m.id||'')}','${eid}',this,'${esc(m.lineUid||'')}',currentSessionId,${m.rowIndex||0})" style="width:14px;height:14px;cursor:pointer;accent-color:#00C9B1">
            <span style="font-size:11px;color:#7FBBCC">已收款 ☐</span>
          </label>`;
     return `
@@ -702,9 +702,9 @@ function copyUID(uid) {
   } else { fallback(); }
 }
 
-async function confirmPaymentAction(enrollId, elemId, checkbox, lineUid, sessionId) {
+async function confirmPaymentAction(enrollId, elemId, checkbox, lineUid, sessionId, rowIndex) {
   checkbox.disabled = true;
-  const res = await api({ action: 'confirmPayment', password: pwd, enrollId, lineUid, sessionId });
+  const res = await api({ action: 'confirmPayment', password: pwd, enrollId, lineUid, sessionId, rowIndex });
   if (res.ok) {
     toast('✅ 已標記已收款');
     const el = document.getElementById('pay-status-'+elemId);
