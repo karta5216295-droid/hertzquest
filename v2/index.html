@@ -247,6 +247,18 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     </div>
     <div class="field"><label>真實姓名</label><input id="reg-name" placeholder="請輸入真實姓名"></div>
     <div class="field"><label>聯絡電話</label><input id="reg-phone" type="tel" placeholder="0912-345-678"></div>
+    <div class="field">
+      <label>第一次上課日期</label>
+      <input id="reg-first-class" type="date" placeholder="yyyy-mm-dd">
+    </div>
+    <div class="field">
+      <label>教練姓名</label>
+      <input id="reg-coach" placeholder="請輸入教練姓名">
+    </div>
+    <div class="field">
+      <label>個人 LINE ID（選填）</label>
+      <input id="reg-line-id" placeholder="請輸入你的 LINE ID">
+    </div>
     <button class="btn btn-teal" id="reg-btn" onclick="submitRegister()">完成登記</button>
   </div>
 </div>
@@ -391,10 +403,13 @@ function showRegister() {
 async function submitRegister() {
   const name = document.getElementById('reg-name').value.trim();
   const phone = document.getElementById('reg-phone').value.trim();
-  if (!name || !phone) { toast('請填寫姓名和電話', 'error'); return; }
+  const firstClassDate = document.getElementById('reg-first-class').value;
+  const coachName = document.getElementById('reg-coach').value.trim();
+  const lineId = document.getElementById('reg-line-id').value.trim();
+  if (!name || !phone || !firstClassDate || !coachName) { toast('請填寫姓名、電話、上課日期和教練姓名', 'error'); return; }
   const btn = document.getElementById('reg-btn');
   btn.disabled = true; btn.textContent = '登記中…';
-  const res = await api({ action:'initMember', lineUid:profile.userId, displayName:profile.displayName, pictureUrl:profile.pictureUrl, realName:name, phone });
+  const res = await api({ action:'initMember', lineUid:profile.userId, displayName:profile.displayName, pictureUrl:profile.pictureUrl, realName:name, phone, firstClassDate, coachName, lineId });
   if (res.ok) { member = res.member; showApp(); }
   else { toast(res.error || '登記失敗', 'error'); btn.disabled = false; btn.textContent = '完成登記'; }
 }
@@ -456,6 +471,12 @@ async function renderTab(tab) {
     listEl.innerHTML = html || `<div class="empty">${IC.wave}<p>還沒有報名紀錄<br>快去報名你的第一場活動！</p><button onclick="switchTab('sessions')" style="margin-top:4px;background:transparent;border:none;color:var(--teal);font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.2px">去看活動 →</button></div>`;
 
   } else {
+    const approvalStatus = member?.approvalStatus || 'pending';
+    const approvalBadge = approvalStatus === 'approved'
+      ? `<span style="background:rgba(0,201,177,.15);border:1px solid rgba(0,201,177,.4);color:#00C9B1;border-radius:8px;padding:2px 10px;font-size:12px;font-weight:700">已審核</span>`
+      : approvalStatus === 'rejected'
+      ? `<span style="background:rgba(224,80,80,.15);border:1px solid rgba(224,80,80,.4);color:#E05050;border-radius:8px;padding:2px 10px;font-size:12px;font-weight:700">未通過</span>`
+      : `<span style="background:rgba(255,176,48,.15);border:1px solid rgba(255,176,48,.4);color:#FFB030;border-radius:8px;padding:2px 10px;font-size:12px;font-weight:700">待審核</span>`;
     el.innerHTML = `
       <div class="section-pad">
         <div class="profile-card">
@@ -465,6 +486,13 @@ async function renderTab(tab) {
           <div class="profile-info">
             <div class="pi-row"><div class="pi-icon">${IC.person}</div><div><div class="pi-label">LINE 名稱</div><div class="pi-value">${profile?.displayName||'—'}</div></div></div>
             <div class="pi-row"><div class="pi-icon">${IC.phone}</div><div><div class="pi-label">聯絡電話</div><div class="pi-value">${member?.phone||'—'}</div></div></div>
+            ${member?.lineId ? `<div class="pi-row"><div class="pi-icon">${IC.person}</div><div><div class="pi-label">個人 LINE ID</div><div class="pi-value">${esc(member.lineId)}</div></div></div>` : ''}
+            ${member?.coachName ? `<div class="pi-row"><div class="pi-icon">${IC.person}</div><div><div class="pi-label">教練</div><div class="pi-value">${esc(member.coachName)}</div></div></div>` : ''}
+            ${member?.firstClassDate ? `<div class="pi-row"><div class="pi-icon">${IC.cal}</div><div><div class="pi-label">初次上課</div><div class="pi-value">${esc(member.firstClassDate)}</div></div></div>` : ''}
+            ${member?.certLevel ? `<div class="pi-row"><div class="pi-icon">${IC.card}</div><div><div class="pi-label">證照等級</div><div class="pi-value">${esc(member.certLevel)}</div></div></div>` : ''}
+            ${member?.depth ? `<div class="pi-row"><div class="pi-icon">${IC.wave}</div><div><div class="pi-label">深度</div><div class="pi-value">${esc(member.depth)}</div></div></div>` : ''}
+            ${member?.breathHold ? `<div class="pi-row"><div class="pi-icon">${IC.wave}</div><div><div class="pi-label">閉氣時間</div><div class="pi-value">${esc(member.breathHold)}</div></div></div>` : ''}
+            <div class="pi-row"><div class="pi-icon">${IC.check}</div><div><div class="pi-label">審核狀態</div><div class="pi-value">${approvalBadge}</div></div></div>
           </div>
         </div>
         <div style="margin-top:14px;background:var(--card2);border:1px solid var(--border);border-radius:16px;padding:18px 18px 16px;">

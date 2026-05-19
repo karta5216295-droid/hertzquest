@@ -10,7 +10,8 @@ const CFG = {
 
 // Column indices (1-based) — Enrollments 含 CERT 欄（第6欄）
 const C = {
-  M: { ID:1,UID:2,NAME:3,PHONE:4,DISPLAY:5,PIC:6,STATUS:7,AT:8 },
+  M: { ID:1,UID:2,NAME:3,PHONE:4,DISPLAY:5,PIC:6,STATUS:7,AT:8,
+       FIRST_CLASS:9,COACH_NAME:10,LINE_ID:11,DEPTH:12,BREATH:13,CERT:14,APPROVAL:15 },
   S: { ID:1,TITLE:2,DATE:3,TIME:4,LOC:5,MEET:6,DESC:7,COACH:8,MAX:9,LEFT:10,PRICE:11,ACTIVE:12,AT:13 },
   E: { ID:1,SID:2,UID:3,NAME:4,PHONE:5,CERT:6,AT:7,TRANSFER:8,PAYMENT:9 },
 };
@@ -40,6 +41,7 @@ function dispatch(d) {
     initMember, getSessions, enrollSession, myEnrollments, cancelEnroll,
     coachLogin, allSessions, createSession, updateSession, deleteSession,
     getEnrollList, notifyStudents, confirmPayment, getMembers, deleteMember,
+    approveStudent, updateStudentStats,
     getAnnouncements, createAnnouncement, deleteAnnouncement,
     createTrip, getTrips, enrollTrip, cancelTripEnroll, myTripEnrollments,
     getTripEnrollList, updateTrip, deleteTrip,
@@ -55,7 +57,7 @@ function res(data) {
 }
 
 // ── 學員 API ─────────────────────────────────────────────────
-function initMember({lineUid, displayName, pictureUrl, realName, phone}) {
+function initMember({lineUid, displayName, pictureUrl, realName, phone, firstClassDate, coachName, lineId}) {
   const sh = sh_('Members');
   const rows = sh.getDataRange().getValues();
 
@@ -64,7 +66,21 @@ function initMember({lineUid, displayName, pictureUrl, realName, phone}) {
       // 更新 LINE 暱稱/頭像
       sh.getRange(i+1, C.M.DISPLAY).setValue(displayName||'');
       sh.getRange(i+1, C.M.PIC).setValue(pictureUrl||'');
-      return {ok:true, member:toMember(rows[i]), isNew:false};
+      const r = rows[i];
+      return {ok:true, member:{
+        id:           r[C.M.ID-1],
+        lineUid:      r[C.M.UID-1],
+        realName:     r[C.M.NAME-1],
+        phone:        r[C.M.PHONE-1],
+        displayName:  displayName||r[C.M.DISPLAY-1],
+        firstClassDate: String(r[C.M.FIRST_CLASS-1]||''),
+        coachName:    r[C.M.COACH_NAME-1]||'',
+        lineId:       r[C.M.LINE_ID-1]||'',
+        depth:        r[C.M.DEPTH-1]||'',
+        breathHold:   r[C.M.BREATH-1]||'',
+        certLevel:    r[C.M.CERT-1]||'',
+        approvalStatus: r[C.M.APPROVAL-1]||'pending',
+      }, isNew:false};
     }
   }
 
@@ -72,8 +88,8 @@ function initMember({lineUid, displayName, pictureUrl, realName, phone}) {
   if (!realName || !phone) return {ok:true, member:null, isNew:true};
 
   const id = 'M'+Date.now();
-  sh.appendRow([id,lineUid,realName,phone,displayName||'',pictureUrl||'','active',new Date()]);
-  return {ok:true, member:{id,lineUid,realName,phone,displayName}, isNew:true, justRegistered:true};
+  sh.appendRow([id,lineUid,realName,phone,displayName||'',pictureUrl||'','active',new Date(),firstClassDate||'',coachName||'',lineId||'','','','','pending']);
+  return {ok:true, member:{id,lineUid,realName,phone,displayName,firstClassDate:firstClassDate||'',coachName:coachName||'',lineId:lineId||'',depth:'',breathHold:'',certLevel:'',approvalStatus:'pending'}, isNew:true, justRegistered:true};
 }
 
 function getSessions({lineUid}) {
@@ -229,15 +245,50 @@ function getMembers({password}) {
   if (!auth(password)) return noAuth();
   const rows = sh_('Members').getDataRange().getValues();
   const members = rows.slice(1).filter(r=>r[0]).map(r=>({
-    id:         r[C.M.ID-1],
-    lineUid:    r[C.M.UID-1],
-    realName:   r[C.M.NAME-1],
-    phone:      r[C.M.PHONE-1],
-    displayName:r[C.M.DISPLAY-1],
-    status:     r[C.M.STATUS-1],
-    joinedAt:   String(r[C.M.AT-1]).slice(0,10),
+    id:           r[C.M.ID-1],
+    lineUid:      r[C.M.UID-1],
+    realName:     r[C.M.NAME-1],
+    phone:        r[C.M.PHONE-1],
+    displayName:  r[C.M.DISPLAY-1],
+    status:       r[C.M.STATUS-1],
+    joinedAt:     String(r[C.M.AT-1]).slice(0,10),
+    firstClassDate: String(r[C.M.FIRST_CLASS-1]||''),
+    coachName:    r[C.M.COACH_NAME-1]||'',
+    lineId:       r[C.M.LINE_ID-1]||'',
+    depth:        r[C.M.DEPTH-1]||'',
+    breathHold:   r[C.M.BREATH-1]||'',
+    certLevel:    r[C.M.CERT-1]||'',
+    approvalStatus: r[C.M.APPROVAL-1]||'pending',
   }));
   return {ok:true, members};
+}
+
+function approveStudent({password, memberId, approved}) {
+  if (!auth(password)) return noAuth();
+  const sh = sh_('Members');
+  const rows = sh.getDataRange().getValues();
+  for (let i=1;i<rows.length;i++) {
+    if (rows[i][C.M.ID-1]===memberId) {
+      sh.getRange(i+1, C.M.APPROVAL).setValue(approved ? 'approved' : 'rejected');
+      return {ok:true};
+    }
+  }
+  return {ok:false, error:'找不到學員'};
+}
+
+function updateStudentStats({password, memberId, depth, breathHold, certLevel}) {
+  if (!auth(password)) return noAuth();
+  const sh = sh_('Members');
+  const rows = sh.getDataRange().getValues();
+  for (let i=1;i<rows.length;i++) {
+    if (rows[i][C.M.ID-1]===memberId) {
+      if (depth !== undefined) sh.getRange(i+1, C.M.DEPTH).setValue(depth||'');
+      if (breathHold !== undefined) sh.getRange(i+1, C.M.BREATH).setValue(breathHold||'');
+      if (certLevel !== undefined) sh.getRange(i+1, C.M.CERT).setValue(certLevel||'');
+      return {ok:true};
+    }
+  }
+  return {ok:false, error:'找不到學員'};
 }
 
 function deleteMember({password, memberId}) {
@@ -334,7 +385,17 @@ function toSession(r) {
 }
 
 function toMember(r) {
-  return {id:r[0],lineUid:r[1],realName:r[2],phone:r[3],displayName:r[4]};
+  return {
+    id:r[C.M.ID-1], lineUid:r[C.M.UID-1], realName:r[C.M.NAME-1],
+    phone:r[C.M.PHONE-1], displayName:r[C.M.DISPLAY-1],
+    firstClassDate: String(r[C.M.FIRST_CLASS-1]||''),
+    coachName: r[C.M.COACH_NAME-1]||'',
+    lineId: r[C.M.LINE_ID-1]||'',
+    depth: r[C.M.DEPTH-1]||'',
+    breathHold: r[C.M.BREATH-1]||'',
+    certLevel: r[C.M.CERT-1]||'',
+    approvalStatus: r[C.M.APPROVAL-1]||'pending',
+  };
 }
 
 function sendLine(toUid, text) {
@@ -425,7 +486,7 @@ function setupSheets() {
       sh.setFrozenRows(1);
     }
   };
-  init('Members',     ['ID','LINE_UID','真實姓名','電話','LINE暱稱','頭像','狀態','加入時間'],'#1565C0');
+  init('Members',     ['ID','LINE_UID','真實姓名','電話','LINE暱稱','頭像','狀態','加入時間','初次上課日','教練','LINE_ID','深度','閉氣','證照','審核狀態'],'#1565C0');
   init('Sessions',    ['ID','標題','日期','時間','地點','集合地點','說明','教練','名額上限','剩餘名額','費用','開放報名','建立時間'],'#2E7D32');
   init('Enrollments', ['ID','活動ID','LINE_UID','姓名','電話','證照等級','報名時間','轉帳末5碼','收款狀態'],'#6A1B9A');
   init('Announcements',['id','text','active'],'#4A148C');

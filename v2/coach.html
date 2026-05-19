@@ -111,6 +111,29 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
 
 .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #1E4060; border-top-color: #00C9B1; border-radius: 50%; animation: spin .6s linear infinite; margin-right: 8px; vertical-align: middle; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Member approval & stats */
+.approval-badge { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 8px; padding: 2px 9px; border: 1px solid; white-space: nowrap; }
+.approval-pending  { background: rgba(255,176,48,.15); border-color: rgba(255,176,48,.5); color: #FFB030; }
+.approval-approved { background: rgba(0,201,177,.15); border-color: rgba(0,201,177,.5); color: #00C9B1; }
+.approval-rejected { background: rgba(224,80,80,.15); border-color: rgba(224,80,80,.5); color: #E05050; }
+
+.member-card { background: #112840; border: 1px solid #1E4060; border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+.member-card.pending-card { border-color: rgba(255,176,48,.4); }
+.member-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.member-card-name { font-size: 15px; font-weight: 700; }
+.member-card-meta { font-size: 12px; color: #7FBBCC; line-height: 1.8; }
+.member-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+.stats-edit-panel { display: none; background: rgba(0,0,0,.25); border: 1px solid #1E4060; border-radius: 12px; padding: 14px; margin-top: 10px; }
+.stats-edit-panel.open { display: block; }
+.stats-edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.stats-edit-panel input, .stats-edit-panel select {
+  width: 100%; background: #112840; border: 1px solid #1E4060; border-radius: 8px;
+  padding: 9px 12px; font-size: 13px; color: #F0F0FF; outline: none; font-family: inherit; }
+.stats-edit-panel input:focus, .stats-edit-panel select:focus { border-color: #00C9B1; }
+.stats-edit-panel label { font-size: 11px; color: #7FBBCC; display: block; margin-bottom: 4px; }
+.stats-edit-panel select option { background: #112840; }
 </style>
 </head>
 <body>
@@ -654,16 +677,100 @@ async function loadMembers() {
   if (!res.ok) { el.innerHTML = `<div style="color:#E05050">${res.error}</div>`; return; }
   const members = res.members || [];
   if (!members.length) { el.innerHTML = '<div class="empty-state">尚無學員</div>'; return; }
-  document.getElementById('members-list').innerHTML = members.map(m => `
-    <div class="member-row">
-      <div class="member-avatar">${(m.realName||'?').charAt(0)}</div>
-      <div class="member-info">
-        <div class="member-name">${esc(m.realName)}</div>
-        <div class="member-phone">${esc(m.phone||'')}</div>
-        <div class="member-date">${esc(m.displayName||'')} · 加入 ${m.joinedAt||'—'}</div>
+
+  const pendingCount = members.filter(m => (m.approvalStatus||'pending') === 'pending').length;
+  let html = '';
+  if (pendingCount) {
+    html += `<div style="font-size:12px;color:#FFB030;font-weight:700;margin-bottom:10px;padding:8px 12px;background:rgba(255,176,48,.08);border:1px solid rgba(255,176,48,.3);border-radius:10px">⚠️ 有 ${pendingCount} 位學員待審核</div>`;
+  }
+
+  html += members.map(m => {
+    const approval = m.approvalStatus || 'pending';
+    const approvalClass = approval === 'approved' ? 'approval-approved' : approval === 'rejected' ? 'approval-rejected' : 'approval-pending';
+    const approvalLabel = approval === 'approved' ? '已審核' : approval === 'rejected' ? '未通過' : '待審核';
+    const mid = esc(m.id);
+    return `
+    <div class="member-card${approval === 'pending' ? ' pending-card' : ''}" id="mcard-${mid}">
+      <div class="member-card-header">
+        <div>
+          <div class="member-card-name">${esc(m.realName)}</div>
+          <div style="margin-top:4px"><span class="approval-badge ${approvalClass}">${approvalLabel}</span>${m.certLevel ? ` <span class="cert-badge">${esc(m.certLevel)}</span>` : ''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <div style="font-size:12px;color:#7FBBCC">${esc(m.phone||'')}</div>
+          <div style="font-size:11px;color:#3A5070">加入 ${m.joinedAt||'—'}</div>
+        </div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteMemberAction('${esc(m.id)}','${esc(m.realName)}')">🗑 刪除</button>
-    </div>`).join('');
+      <div class="member-card-meta">
+        ${m.displayName ? `<span>LINE：${esc(m.displayName)}</span><br>` : ''}
+        ${m.coachName ? `<span>教練：${esc(m.coachName)}</span><br>` : ''}
+        ${m.firstClassDate ? `<span>初次上課：${esc(m.firstClassDate)}</span><br>` : ''}
+        ${m.depth ? `<span>深度：${esc(m.depth)}</span>  ` : ''}
+        ${m.breathHold ? `<span>閉氣：${esc(m.breathHold)}</span><br>` : ''}
+        ${m.lineId ? `<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">LINE ID：${esc(m.lineId)} <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:10px" onclick="copyText('${esc(m.lineId)}','LINE ID')">複製</button></span>` : ''}
+      </div>
+      <div class="member-card-actions">
+        ${approval === 'pending' ? `
+          <button class="btn btn-ghost btn-sm" onclick="approveStudentAction('${mid}', true)">✅ 核准</button>
+          <button class="btn btn-danger btn-sm" onclick="approveStudentAction('${mid}', false)">✗ 拒絕</button>
+        ` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="toggleEditPanel('${mid}')">✏️ 編輯資料</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMemberAction('${mid}','${esc(m.realName)}')">🗑 刪除</button>
+      </div>
+      <div class="stats-edit-panel" id="edit-panel-${mid}">
+        <div style="font-size:12px;font-weight:700;color:#00C9B1;margin-bottom:10px">編輯潛水資料</div>
+        <div class="stats-edit-row">
+          <div><label>深度（例：30m）</label><input id="edit-depth-${mid}" placeholder="30m" value="${esc(m.depth||'')}"></div>
+          <div><label>閉氣時間（例：2:30）</label><input id="edit-breath-${mid}" placeholder="2:30" value="${esc(m.breathHold||'')}"></div>
+        </div>
+        <div style="margin-bottom:10px">
+          <label>證照等級</label>
+          <select id="edit-cert-${mid}">
+            <option value="">無照</option>
+            <option value="AIDA1" ${m.certLevel==='AIDA1'?'selected':''}>AIDA1</option>
+            <option value="AIDA2" ${m.certLevel==='AIDA2'?'selected':''}>AIDA2</option>
+            <option value="AIDA3" ${m.certLevel==='AIDA3'?'selected':''}>AIDA3</option>
+            <option value="AIDA4" ${m.certLevel==='AIDA4'?'selected':''}>AIDA4</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%" onclick="updateStudentStatsAction('${mid}')">儲存資料</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('members-list').innerHTML = html;
+}
+
+function toggleEditPanel(memberId) {
+  const panel = document.getElementById('edit-panel-' + memberId);
+  if (panel) panel.classList.toggle('open');
+}
+
+async function approveStudentAction(memberId, approved) {
+  const res = await api({ action: 'approveStudent', password: pwd, memberId, approved });
+  if (res.ok) { toast(approved ? '✅ 已核准' : '已拒絕'); loadMembers(); }
+  else toast(res.error || '操作失敗', true);
+}
+
+async function updateStudentStatsAction(memberId) {
+  const depth     = document.getElementById('edit-depth-'  + memberId)?.value.trim();
+  const breathHold= document.getElementById('edit-breath-' + memberId)?.value.trim();
+  const certLevel = document.getElementById('edit-cert-'   + memberId)?.value;
+  const res = await api({ action: 'updateStudentStats', password: pwd, memberId, depth, breathHold, certLevel });
+  if (res.ok) { toast('資料已儲存'); loadMembers(); }
+  else toast(res.error || '儲存失敗', true);
+}
+
+function copyText(text, label) {
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    toast((label||'文字') + ' 已複製');
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => toast((label||'文字') + ' 已複製')).catch(fallback);
+  } else { fallback(); }
 }
 
 // ── 刪除操作 ──────────────────────────────────────
