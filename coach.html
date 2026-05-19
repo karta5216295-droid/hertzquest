@@ -731,6 +731,7 @@ async function loadMembers() {
             <option value="AIDA2" ${m.certLevel==='AIDA2'?'selected':''}>AIDA2</option>
             <option value="AIDA3" ${m.certLevel==='AIDA3'?'selected':''}>AIDA3</option>
             <option value="AIDA4" ${m.certLevel==='AIDA4'?'selected':''}>AIDA4</option>
+            <option value="教練" ${m.certLevel==='教練'?'selected':''}>教練</option>
           </select>
         </div>
         <button class="btn btn-ghost btn-sm" style="width:100%" onclick="updateStudentStatsAction('${mid}')">儲存資料</button>
