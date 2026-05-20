@@ -96,7 +96,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 /* ── Filter Bar ── */
 .filter-bar{display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
 .filter-bar::-webkit-scrollbar{display:none;}
-.filter-select{flex-shrink:0;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--t1);font-size:12px;font-weight:600;padding:7px 10px;cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;padding-right:24px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2300C9B1'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
+.filter-wrap{position:relative;flex-shrink:0;}
+.filter-wrap .fi{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:13px;height:13px;pointer-events:none;color:var(--teal);}
+.filter-select{background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--t1);font-size:12px;font-weight:600;padding:7px 24px 7px 28px;cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2300C9B1'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
 .filter-select.active{border-color:var(--teal);color:var(--teal);background-color:rgba(0,201,177,.07);}
 .filter-clear{flex-shrink:0;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--t3);font-size:12px;font-weight:600;padding:7px 12px;cursor:pointer;}
 
@@ -574,14 +576,28 @@ function renderFilterBar() {
 
   bar.style.display = 'flex';
   bar.innerHTML = `
-    <select id="filter-loc" class="filter-select" onchange="applyFilter()">
-      <option value="">📍 全部地點</option>
-      ${locs.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('')}
-    </select>
-    <select id="filter-month" class="filter-select" onchange="applyFilter()">
-      <option value="">📅 全部月份</option>
-      ${months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('')}
-    </select>
+    <div class="filter-wrap">
+      <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+        <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
+      </svg>
+      <select id="filter-loc" class="filter-select" onchange="applyFilter()">
+        <option value="">全部地點</option>
+        ${locs.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="filter-wrap">
+      <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <select id="filter-month" class="filter-select" onchange="applyFilter()">
+        <option value="">全部月份</option>
+        ${months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('')}
+      </select>
+    </div>
     <button class="filter-clear" onclick="clearFilter()">重置</button>`;
 }
 
@@ -670,11 +686,11 @@ function sessionCardHTML(s) {
       <div class="cert-spots-row">
         <div class="cert-spot-box">
           <div class="csb-label">無證名額</div>
-          <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertLeft}/${uncertMax}</div>
+          <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertCount}/${uncertMax}</div>
         </div>
         <div class="cert-spot-box">
           <div class="csb-label">有證名額</div>
-          <div class="csb-num ${spots>0?'csb-ok':'csb-full'}">${spots>0?'開放':'已滿'}</div>
+          <div class="csb-num ${spots>0?'csb-ok':'csb-full'}">${certCount}/${certMax}</div>
         </div>
       </div>
       <div class="sc-footer">
@@ -757,7 +773,7 @@ function openDetail(sessionId) {
       <div class="detail-row"><div class="detail-icon">${IC.cal}</div><div class="detail-text">${s.date}${s.time?' · '+s.time:''}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.person}</div><div class="detail-text">教練：${esc(s.coach)||'—'}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.price}</div><div class="detail-text">${s.price?'NT$ '+s.price:'免費'}</div></div>
-      <div class="detail-row"><div class="detail-icon">${IC.people}</div><div class="detail-text">無照：${uncertLeft}/${uncertMax}&nbsp;&nbsp;有照：${certLeft>0?`剩 ${certLeft} 位`:'已滿'}</div></div>
+      <div class="detail-row"><div class="detail-icon">${IC.people}</div><div class="detail-text">無照：${uncertCount}/${uncertMax}&nbsp;&nbsp;有照：${certCount}/${certMax}</div></div>
     </div>
     ${s.meetingPoint?`<div class="modal-section"><h4>集合地點</h4><div class="meeting-box"><div class="label">請在此集合</div><div class="value">${esc(s.meetingPoint)}</div></div></div>`:''}
     ${s.location?`<div class="modal-section"><h4>地點</h4><div class="detail-row"><div class="detail-icon">${IC.pin}</div><div class="detail-text">${esc(s.location)}</div></div></div>`:''}
