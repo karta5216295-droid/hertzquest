@@ -287,7 +287,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           <path d="M2 16 Q5 12 8 16 Q11 20 14 16 Q17 12 20 16" opacity=".45"/>
         </svg>
       </div>
-      <div class="topbar-title">Hertz</div>
+      <div class="topbar-title">Hertz <span style="font-size:9px;color:var(--t3);font-weight:400">v0521d</span></div>
     </div>
     <div class="topbar-user">
       <div class="username" id="top-name">—</div>
@@ -733,6 +733,7 @@ function openDetail(sessionId) {
   const uncertCount = Number(s.uncertCount||0);
   const certLeft = Math.max(0, certMax - Math.max(0, Number(s.enrollCount||0) - uncertCount));
   const uncertLeft = Math.max(0, uncertMax - uncertCount);
+  const certCount = Math.max(0, Number(s.enrollCount||0) - uncertCount);
 
   let actionHTML = '';
   if (s.enrolled) {
