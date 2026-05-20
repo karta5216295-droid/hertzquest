@@ -12,7 +12,7 @@ const CFG = {
 const C = {
   M: { ID:1,UID:2,NAME:3,PHONE:4,DISPLAY:5,PIC:6,STATUS:7,AT:8,
        FIRST_CLASS:9,COACH_NAME:10,LINE_ID:11,DEPTH:12,BREATH:13,CERT:14,APPROVAL:15 },
-  S: { ID:1,TITLE:2,DATE:3,TIME:4,LOC:5,MEET:6,DESC:7,COACH:8,MAX:9,LEFT:10,PRICE:11,ACTIVE:12,AT:13 },
+  S: { ID:1,TITLE:2,DATE:3,TIME:4,LOC:5,MEET:6,DESC:7,COACH:8,MAX:9,LEFT:10,PRICE:11,ACTIVE:12,AT:13,UNCERT_MAX:14 },
   E: { ID:1,SID:2,UID:3,NAME:4,PHONE:5,CERT:6,AT:7,TRANSFER:8,PAYMENT:9 },
 };
 
@@ -76,8 +76,8 @@ function initMember({lineUid, displayName, pictureUrl, realName, phone, firstCla
         firstClassDate: String(r[C.M.FIRST_CLASS-1]||''),
         coachName:    r[C.M.COACH_NAME-1]||'',
         lineId:       r[C.M.LINE_ID-1]||'',
-        depth:        r[C.M.DEPTH-1]||'',
-        breathHold:   r[C.M.BREATH-1]||'',
+        depth:        String(r[C.M.DEPTH-1]||''),
+        breathHold:   formatBreath(r[C.M.BREATH-1]),
         certLevel:    r[C.M.CERT-1]||'',
         approvalStatus: r[C.M.APPROVAL-1]||'pending',
       }, isNew:false};
@@ -98,15 +98,18 @@ function getSessions({lineUid}) {
   const today = new Date(); today.setHours(0,0,0,0);
 
   const enrolled = new Set();
+  const uncertCnt = {};
   eRows.slice(1).forEach(r => {
     if (r[C.E.UID-1]===lineUid) enrolled.add(r[C.E.SID-1]);
+    const sid = r[C.E.SID-1];
+    if (r[C.E.CERT-1]==='無證') uncertCnt[sid] = (uncertCnt[sid]||0)+1;
   });
 
   const sessions = sRows.slice(1)
     .filter(r => String(r[C.S.ACTIVE-1]).toLowerCase()==='true')
     .filter(r => { try { return new Date(r[C.S.DATE-1]) >= today; } catch(e){ return false; } })
     .sort((a,b) => new Date(a[C.S.DATE-1])-new Date(b[C.S.DATE-1]))
-    .map(r => ({...toSession(r), enrolled: enrolled.has(r[C.S.ID-1])}));
+    .map(r => ({...toSession(r), enrolled: enrolled.has(r[C.S.ID-1]), uncertCount: uncertCnt[r[C.S.ID-1]]||0}));
 
   return {ok:true, sessions};
 }
@@ -132,6 +135,18 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode}) {
     if (sRows[i][C.S.ID-1]===sessionId) { sRowIdx=i+1; sData=sRows[i]; break; }
   }
   if (!sData) return {ok:false,error:'找不到此活動'};
+  // 分別計算無照/有照已報人數
+  const allForSession = eRows.slice(1).filter(r => r[C.E.SID-1]===sessionId);
+  const totalEnrolled = allForSession.length;
+  const uncertEnrolled = allForSession.filter(r => r[C.E.CERT-1]==='無證').length;
+  const uncertMax = Number(sData[C.S.UNCERT_MAX-1])||4;
+  const certMax = Number(sData[C.S.MAX-1]) - uncertMax;
+  if (certLevel==='無證') {
+    if (uncertEnrolled >= uncertMax) return {ok:false, error:`無照名額已滿（${uncertMax}/${uncertMax}）`};
+  } else {
+    const certEnrolled = totalEnrolled - uncertEnrolled;
+    if (certMax > 0 && certEnrolled >= certMax) return {ok:false, error:'有照名額已滿'};
+  }
   if (Number(sData[C.S.LEFT-1]) <= 0) return {ok:false,error:'名額已滿'};
 
   // 寫入報名
@@ -161,7 +176,16 @@ function myEnrollments({lineUid}) {
 
   const list = eRows.slice(1)
     .filter(r => r[C.E.UID-1]===lineUid)
-    .map(r => { const s=sMap[r[C.E.SID-1]]; return s ? toSession(s) : null; })
+    .map(r => {
+      const s = sMap[r[C.E.SID-1]];
+      if (!s) return null;
+      return {
+        ...toSession(s),
+        enrollId:      String(r[C.E.ID-1]||''),
+        transferCode:  r[C.E.TRANSFER-1]||'',
+        paymentStatus: r[C.E.PAYMENT-1]||'pending',
+      };
+    })
     .filter(Boolean)
     .sort((a,b) => new Date(a.date)-new Date(b.date));
 
@@ -199,21 +223,29 @@ function allSessions({password}) {
   const sRows = sh_('Sessions').getDataRange().getValues();
   const eRows = sh_('Enrollments').getDataRange().getValues();
   const cnt = {};
-  eRows.slice(1).forEach(r => { if(r[C.E.UID-1]) cnt[r[C.E.SID-1]]=(cnt[r[C.E.SID-1]]||0)+1; });
+  const uncertCnt = {};
+  eRows.slice(1).forEach(r => {
+    if(r[C.E.UID-1]) {
+      cnt[r[C.E.SID-1]]=(cnt[r[C.E.SID-1]]||0)+1;
+      if(r[C.E.CERT-1]==='無證') uncertCnt[r[C.E.SID-1]]=(uncertCnt[r[C.E.SID-1]]||0)+1;
+    }
+  });
 
   const sessions = sRows.slice(1)
     .sort((a,b) => new Date(b[C.S.DATE-1])-new Date(a[C.S.DATE-1]))
-    .map(r => ({...toSession(r), enrollCount:cnt[r[C.S.ID-1]]||0, active: String(r[C.S.ACTIVE-1]).toLowerCase()==='true'}));
+    .map(r => ({...toSession(r), enrollCount:cnt[r[C.S.ID-1]]||0, uncertCount:uncertCnt[r[C.S.ID-1]]||0, active: String(r[C.S.ACTIVE-1]).toLowerCase()==='true'}));
 
   return {ok:true, sessions};
 }
 
-function createSession({password, title, date, time, location, meetingPoint, description, coach, maxSpots, price}) {
+function createSession({password, title, date, time, location, meetingPoint, description, coach, uncertMax, certMaxSpots, price}) {
   if (!auth(password)) return noAuth();
   if (!title||!date) return {ok:false,error:'標題和日期為必填'};
   const id='S'+Date.now();
-  const max=Number(maxSpots)||20;
-  sh_('Sessions').appendRow([id,title,date,time||'',location||'',meetingPoint||'',description||'',coach||'',max,max,Number(price)||0,true,new Date()]);
+  const uMax = Number(uncertMax)||4;
+  const cMax = Number(certMaxSpots)||0;
+  const max = uMax + cMax;
+  sh_('Sessions').appendRow([id,title,date,time||'',location||'',meetingPoint||'',description||'',coach||'',max,max,Number(price)||0,true,new Date(),uMax]);
   return {ok:true,id,message:`「${title}」已建立`};
 }
 
@@ -223,7 +255,7 @@ function updateSession({password, sessionId, ...fields}) {
   const rows = sh.getDataRange().getValues();
   for (let i=1;i<rows.length;i++) {
     if (rows[i][C.S.ID-1]===sessionId) {
-      const map = {title:C.S.TITLE,date:C.S.DATE,time:C.S.TIME,location:C.S.LOC,meetingPoint:C.S.MEET,description:C.S.DESC,coach:C.S.COACH,maxSpots:C.S.MAX,price:C.S.PRICE,active:C.S.ACTIVE};
+      const map = {title:C.S.TITLE,date:C.S.DATE,time:C.S.TIME,location:C.S.LOC,meetingPoint:C.S.MEET,description:C.S.DESC,coach:C.S.COACH,maxSpots:C.S.MAX,price:C.S.PRICE,active:C.S.ACTIVE,uncertMax:C.S.UNCERT_MAX};
       Object.entries(fields).forEach(([k,v]) => { if(map[k]) sh.getRange(i+1,map[k]).setValue(v); });
       return {ok:true};
     }
@@ -255,8 +287,8 @@ function getMembers({password}) {
     firstClassDate: String(r[C.M.FIRST_CLASS-1]||''),
     coachName:    r[C.M.COACH_NAME-1]||'',
     lineId:       r[C.M.LINE_ID-1]||'',
-    depth:        r[C.M.DEPTH-1]||'',
-    breathHold:   r[C.M.BREATH-1]||'',
+    depth:        String(r[C.M.DEPTH-1]||''),
+    breathHold:   formatBreath(r[C.M.BREATH-1]),
     certLevel:    r[C.M.CERT-1]||'',
     approvalStatus: r[C.M.APPROVAL-1]||'pending',
   }));
@@ -374,13 +406,42 @@ function checkPassword(p) { return p===CFG.COACH_PWD ? {ok:true} : {ok:false,err
 function sh_(name) { return SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName(name); }
 
 function toSession(r) {
+  // 時間欄位可能被 Sheets 解析為 Date 物件，用 UTC 方法避免時區偏移，並轉成 AM/PM
+  var rawTime = r[3];
+  var timeStr = '';
+  if (rawTime instanceof Date) {
+    var h = rawTime.getUTCHours();
+    var m = rawTime.getUTCMinutes();
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12 || 12;
+    timeStr = h12 + ':' + String(m).padStart(2,'0') + ' ' + ampm;
+  } else if (rawTime) {
+    var parts = String(rawTime).split(':');
+    if (parts.length >= 2) {
+      var hh = parseInt(parts[0], 10);
+      var mm = parseInt(parts[1], 10);
+      if (!isNaN(hh) && !isNaN(mm)) {
+        var ap = hh >= 12 ? 'PM' : 'AM';
+        var h12b = hh % 12 || 12;
+        timeStr = h12b + ':' + String(mm).padStart(2,'0') + ' ' + ap;
+      } else {
+        timeStr = String(rawTime);
+      }
+    } else {
+      timeStr = String(rawTime);
+    }
+  }
+  // 日期欄位同樣可能是 Date 物件，用 formatDate 確保格式為 YYYY-MM-DD
+  var rawDate = r[2];
+  var dateStr = rawDate instanceof Date ? formatDate(rawDate) : String(rawDate).slice(0,10);
   return {
     id:r[0], title:r[1],
-    date: String(r[2]).slice(0,10),
-    time:r[3]||'', location:r[4]||'', meetingPoint:r[5]||'',
+    date: dateStr,
+    time: timeStr, location:r[4]||'', meetingPoint:r[5]||'',
     description:r[6]||'', coach:r[7]||'',
     maxSpots:r[8], spotsLeft:r[9], price:r[10],
     active: String(r[11]).toLowerCase()==='true',
+    uncertMax: Number(r[C.S.UNCERT_MAX-1])||4,
   };
 }
 
@@ -391,8 +452,8 @@ function toMember(r) {
     firstClassDate: String(r[C.M.FIRST_CLASS-1]||''),
     coachName: r[C.M.COACH_NAME-1]||'',
     lineId: r[C.M.LINE_ID-1]||'',
-    depth: r[C.M.DEPTH-1]||'',
-    breathHold: r[C.M.BREATH-1]||'',
+    depth: String(r[C.M.DEPTH-1]||''),
+    breathHold: formatBreath(r[C.M.BREATH-1]),
     certLevel: r[C.M.CERT-1]||'',
     approvalStatus: r[C.M.APPROVAL-1]||'pending',
   };
@@ -487,7 +548,7 @@ function setupSheets() {
     }
   };
   init('Members',     ['ID','LINE_UID','真實姓名','電話','LINE暱稱','頭像','狀態','加入時間','初次上課日','教練','LINE_ID','深度','閉氣','證照','審核狀態'],'#1565C0');
-  init('Sessions',    ['ID','標題','日期','時間','地點','集合地點','說明','教練','名額上限','剩餘名額','費用','開放報名','建立時間'],'#2E7D32');
+  init('Sessions',    ['ID','標題','日期','時間','地點','集合地點','說明','教練','名額上限','剩餘名額','費用','開放報名','建立時間','無照名額'],'#2E7D32');
   init('Enrollments', ['ID','活動ID','LINE_UID','姓名','電話','證照等級','報名時間','轉帳末5碼','收款狀態'],'#6A1B9A');
   init('Announcements',['id','text','active'],'#4A148C');
   initTripSheets();
@@ -502,6 +563,29 @@ function formatTime(val) {
     var h = val.getHours().toString().padStart(2,'0');
     var m = val.getMinutes().toString().padStart(2,'0');
     return h + ':' + m;
+  }
+  return String(val);
+}
+
+// 閉氣時間可能被 Sheets 解析為 Date 物件（1899-12-30 時間格式）
+// 或純文字 "1:24"，或數字（小數天）——統一轉成易讀字串
+function formatBreath(val) {
+  if (!val && val !== 0) return '';
+  // Date 物件（Sheets Time 格式）
+  // 必須用 getUTC* — GAS 把 Sheets 時間存成 UTC epoch，用 getHours() 會多加時區偏移（台灣 +8）
+  if (val instanceof Date) {
+    var h = val.getUTCHours();
+    var m = val.getUTCMinutes();
+    var s = val.getUTCSeconds();
+    if (h > 0) return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    return String(m) + ':' + String(s).padStart(2,'0');
+  }
+  // 數字（Sheets 以小數天儲存，直接換算秒即可，無時區問題）
+  if (typeof val === 'number') {
+    var totalSec = Math.round(val * 86400);
+    var mm = Math.floor(totalSec / 60);
+    var ss2 = totalSec % 60;
+    return mm + ':' + String(ss2).padStart(2,'0');
   }
   return String(val);
 }

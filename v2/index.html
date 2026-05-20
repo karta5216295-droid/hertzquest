@@ -93,6 +93,19 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .sh-line{width:3px;height:14px;background:var(--teal);border-radius:2px;flex-shrink:0;}
 .section-title{font-size:10px;font-weight:800;color:var(--t3);letter-spacing:.8px;text-transform:uppercase;}
 
+/* ── Filter Bar ── */
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
+.filter-bar::-webkit-scrollbar{display:none;}
+.filter-select{flex-shrink:0;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--t1);font-size:12px;font-weight:600;padding:7px 10px;cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;padding-right:24px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2300C9B1'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
+.filter-select.active{border-color:var(--teal);color:var(--teal);background-color:rgba(0,201,177,.07);}
+.filter-clear{flex-shrink:0;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--t3);font-size:12px;font-weight:600;padding:7px 12px;cursor:pointer;}
+
+/* ── Location Group ── */
+.loc-group{margin-bottom:6px;}
+.loc-group-header{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--teal);letter-spacing:.5px;text-transform:uppercase;margin:18px 0 10px;padding:0 2px;}
+.loc-group-header svg{width:12px;height:12px;flex-shrink:0;}
+.loc-group-header:first-child{margin-top:0;}
+
 /* ── Cards ── */
 .session-card,.trip-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s;position:relative;overflow:hidden;}
 .session-card::before,.trip-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,201,177,.15),transparent);}
@@ -360,7 +373,7 @@ const IC = {
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzBy8q-19g_uRMbaEKRULHcd9xdp0k9Vv3RN0-5xV76cAGHEybC7Y_R0yYwpfS7G1SP1w/exec';
 const LIFF_ID = '2010027559-58ppHoAr';
-const MAX_UNCERT = 4;
+// uncertMax is now per-session (s.uncertMax), no global constant needed
 
 let profile = null, member = null;
 let sessions = [], trips = [];
@@ -438,10 +451,11 @@ async function renderTab(tab) {
   const el = document.getElementById('main-content');
 
   if (tab === 'sessions') {
-    el.innerHTML = `<div class="section-pad">${greetingBannerHTML()}<div class="section-header"><div class="sh-line"></div><div class="section-title">即將舉行的活動</div></div><div id="session-list"><div class="empty">${IC.wave}<p>載入中…</p></div></div></div>`;
+    el.innerHTML = `<div class="section-pad">${greetingBannerHTML()}<div class="section-header"><div class="sh-line"></div><div class="section-title">即將舉行的活動</div></div><div id="session-filter-bar" class="filter-bar" style="display:none"></div><div id="session-list"><div class="empty">${IC.wave}<p>載入中…</p></div></div></div>`;
     const res = await api({ action:'getSessions', lineUid:profile.userId });
     if (!res.ok) { document.getElementById('session-list').innerHTML = '<div class="empty"><p>載入失敗</p></div>'; return; }
     sessions = res.sessions || [];
+    renderFilterBar();
     renderSessionList();
     updateGreetingCountdown();
 
@@ -538,6 +552,56 @@ function updateGreetingCountdown() {
   else el.textContent = `距最近一場活動還有 ${diff} 天`;
 }
 
+// ── Filter Bar ────────────────────────────────────
+function renderFilterBar() {
+  const bar = document.getElementById('session-filter-bar');
+  if (!bar || !sessions.length) return;
+
+  // 抽出唯一地點和月份
+  const locs = [...new Set(sessions.map(s => s.location).filter(Boolean))].sort();
+  const months = [...new Set(sessions.map(s => {
+    const d = new Date(s.date);
+    if (isNaN(d)) return null;
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }).filter(Boolean))].sort();
+
+  if (locs.length <= 1 && months.length <= 1) return; // 太少不需篩選
+
+  const monthLabel = m => {
+    const [y, mo] = m.split('-');
+    return y + '/' + mo + '月';
+  };
+
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    <select id="filter-loc" class="filter-select" onchange="applyFilter()">
+      <option value="">📍 全部地點</option>
+      ${locs.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('')}
+    </select>
+    <select id="filter-month" class="filter-select" onchange="applyFilter()">
+      <option value="">📅 全部月份</option>
+      ${months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('')}
+    </select>
+    <button class="filter-clear" onclick="clearFilter()">重置</button>`;
+}
+
+function applyFilter() {
+  // 更新 active 樣式
+  ['filter-loc','filter-month'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', !!el.value);
+  });
+  renderSessionList();
+}
+
+function clearFilter() {
+  const fl = document.getElementById('filter-loc');
+  const fm = document.getElementById('filter-month');
+  if (fl) { fl.value = ''; fl.classList.remove('active'); }
+  if (fm) { fm.value = ''; fm.classList.remove('active'); }
+  renderSessionList();
+}
+
 // ── Session List ──────────────────────────────────
 function renderSessionList() {
   const el = document.getElementById('session-list');
@@ -545,14 +609,53 @@ function renderSessionList() {
     el.innerHTML = `<div class="empty">${IC.wave}<p>目前沒有即將到來的活動<br>請持續關注！</p></div>`;
     return;
   }
-  el.innerHTML = sessions.map(s => sessionCardHTML(s)).join('');
+
+  const locFilter   = document.getElementById('filter-loc')?.value   || '';
+  const monthFilter = document.getElementById('filter-month')?.value || '';
+
+  let filtered = sessions.filter(s => {
+    if (locFilter && s.location !== locFilter) return false;
+    if (monthFilter) {
+      const d = new Date(s.date);
+      if (isNaN(d)) return false;
+      const sm = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      if (sm !== monthFilter) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty">${IC.wave}<p>沒有符合條件的活動<br><span style="font-size:12px;color:var(--t3)">試試調整篩選條件</span></p></div>`;
+    return;
+  }
+
+  // 依地點分組
+  const groups = {};
+  const order  = [];
+  filtered.forEach(s => {
+    const loc = s.location || '未指定地點';
+    if (!groups[loc]) { groups[loc] = []; order.push(loc); }
+    groups[loc].push(s);
+  });
+
+  let html = '';
+  order.forEach(loc => {
+    html += `<div class="loc-group-header">${IC.pin} ${esc(loc)}</div>`;
+    html += groups[loc].map(s => sessionCardHTML(s)).join('');
+  });
+  el.innerHTML = html;
 }
 
 function sessionCardHTML(s) {
-  const spots = Number(s.spotsLeft);
+  const uncertMax = Number(s.uncertMax||4);
+  const certMax = Math.max(0, Number(s.maxSpots) - uncertMax);
+  const uncertCount = Number(s.uncertCount||0);
+  const certCount = Math.max(0, Number(s.enrollCount||0) - uncertCount);
+  const uncertLeft = Math.max(0, uncertMax - uncertCount);
+  const certLeft = Math.max(0, certMax - certCount);
+  const spots = certLeft; // cert spots remaining
   const spotsClass = spots<=0?'spots-full':spots<=3?'spots-few':'spots-ok';
-  const spotsLabel = spots<=0?'名額已滿':`剩 ${spots} 位`;
-  const uncertLeft = Math.max(0, MAX_UNCERT - Number(s.uncertCount||0));
+  const spotsLabel = spots<=0?'有照已滿':`有照剩 ${spots} 位`;
   return `
     <div class="session-card ${s.enrolled?'enrolled':''}" onclick="openDetail('${s.id}')">
       <div class="sc-header">
@@ -567,7 +670,7 @@ function sessionCardHTML(s) {
       <div class="cert-spots-row">
         <div class="cert-spot-box">
           <div class="csb-label">無證名額</div>
-          <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertLeft}/${MAX_UNCERT}</div>
+          <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertLeft}/${uncertMax}</div>
         </div>
         <div class="cert-spot-box">
           <div class="csb-label">有證名額</div>
@@ -609,8 +712,11 @@ function openDetail(sessionId) {
   const s = sessions.find(s => s.id===sessionId);
   if (!s) return;
   selectedCert = null;
-  const spots = Number(s.spotsLeft);
-  const uncertLeft = Math.max(0, MAX_UNCERT - Number(s.uncertCount||0));
+  const uncertMax = Number(s.uncertMax||4);
+  const certMax = Math.max(0, Number(s.maxSpots) - uncertMax);
+  const uncertCount = Number(s.uncertCount||0);
+  const certLeft = Math.max(0, certMax - Math.max(0, Number(s.enrollCount||0) - uncertCount));
+  const uncertLeft = Math.max(0, uncertMax - uncertCount);
 
   let actionHTML = '';
   if (s.enrolled) {
@@ -618,7 +724,7 @@ function openDetail(sessionId) {
     actionHTML = `
       <div class="enrolled-banner">${IC.check}<span>您已報名${certLabel?' · '+certLabel:''}</span></div>
       <button class="btn btn-red" onclick="cancelEnroll('${s.id}')">取消報名</button>`;
-  } else if (spots <= 0 && uncertLeft <= 0) {
+  } else if (certLeft <= 0 && uncertLeft <= 0) {
     actionHTML = `<button class="btn btn-outline" disabled>名額已滿</button>`;
   } else {
     actionHTML = `
@@ -626,19 +732,19 @@ function openDetail(sessionId) {
       <div class="select-grid" id="cert-grid">
         <button class="select-btn ${uncertLeft<=0?'disabled':''}" ${uncertLeft<=0?'disabled':''} onclick="selectCert('無證',this)">
           <span class="sb-name">無 證</span>
-          <span class="sb-sub">${uncertLeft<=0?'名額已滿':uncertLeft+'/'+MAX_UNCERT+' 位剩餘'}</span>
+          <span class="sb-sub">${uncertLeft<=0?'名額已滿':uncertLeft+'/'+uncertMax+' 位剩餘'}</span>
         </button>
-        <button class="select-btn ${spots<=0?'disabled':''}" ${spots<=0?'disabled':''} onclick="selectCert('A1',this)">
+        <button class="select-btn ${certLeft<=0?'disabled':''}" ${certLeft<=0?'disabled':''} onclick="selectCert('A1',this)">
           <span class="sb-name">A1</span>
-          <span class="sb-sub">${spots<=0?'名額已滿':'開放中'}</span>
+          <span class="sb-sub">${certLeft<=0?'名額已滿':'開放中'}</span>
         </button>
-        <button class="select-btn ${spots<=0?'disabled':''}" ${spots<=0?'disabled':''} onclick="selectCert('A2pool',this)">
+        <button class="select-btn ${certLeft<=0?'disabled':''}" ${certLeft<=0?'disabled':''} onclick="selectCert('A2pool',this)">
           <span class="sb-name">A2 Pool</span>
-          <span class="sb-sub">${spots<=0?'名額已滿':'開放中'}</span>
+          <span class="sb-sub">${certLeft<=0?'名額已滿':'開放中'}</span>
         </button>
-        <button class="select-btn ${spots<=0?'disabled':''}" ${spots<=0?'disabled':''} onclick="selectCert('A2',this)">
+        <button class="select-btn ${certLeft<=0?'disabled':''}" ${certLeft<=0?'disabled':''} onclick="selectCert('A2',this)">
           <span class="sb-name">A2</span>
-          <span class="sb-sub">${spots<=0?'名額已滿':'開放中'}</span>
+          <span class="sb-sub">${certLeft<=0?'名額已滿':'開放中'}</span>
         </button>
       </div>
       <button class="btn btn-teal" id="session-enroll-btn" onclick="enroll('${s.id}')" disabled style="opacity:.32">請先選擇證照等級</button>`;
@@ -651,7 +757,7 @@ function openDetail(sessionId) {
       <div class="detail-row"><div class="detail-icon">${IC.cal}</div><div class="detail-text">${s.date}${s.time?' · '+s.time:''}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.person}</div><div class="detail-text">教練：${esc(s.coach)||'—'}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.price}</div><div class="detail-text">${s.price?'NT$ '+s.price:'免費'}</div></div>
-      <div class="detail-row"><div class="detail-icon">${IC.people}</div><div class="detail-text">無證名額：${uncertLeft}/${MAX_UNCERT}&nbsp;&nbsp;有證名額：${spots>0?'開放':'已滿'}</div></div>
+      <div class="detail-row"><div class="detail-icon">${IC.people}</div><div class="detail-text">無照：${uncertLeft}/${uncertMax}&nbsp;&nbsp;有照：${certLeft>0?`剩 ${certLeft} 位`:'已滿'}</div></div>
     </div>
     ${s.meetingPoint?`<div class="modal-section"><h4>集合地點</h4><div class="meeting-box"><div class="label">請在此集合</div><div class="value">${esc(s.meetingPoint)}</div></div></div>`:''}
     ${s.location?`<div class="modal-section"><h4>地點</h4><div class="detail-row"><div class="detail-icon">${IC.pin}</div><div class="detail-text">${esc(s.location)}</div></div></div>`:''}
@@ -925,7 +1031,7 @@ function esc(s) {
 }
 
 function paymentStatusBadge(status) {
-  if (status === 'paid') return `<span style="font-size:10px;font-weight:700;background:rgba(0,201,177,.12);border:1px solid rgba(0,201,177,.3);color:var(--teal);border-radius:6px;padding:2px 8px">✓ 已確認繳費</span>`;
+  if (status === 'confirmed' || status === 'paid') return `<span style="font-size:10px;font-weight:700;background:rgba(0,201,177,.12);border:1px solid rgba(0,201,177,.3);color:var(--teal);border-radius:6px;padding:2px 8px">✓ 已確認繳費</span>`;
   if (status === 'pending') return `<span style="font-size:10px;font-weight:700;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:var(--gold);border-radius:6px;padding:2px 8px">⏳ 待確認</span>`;
   return `<span style="font-size:10px;font-weight:700;background:rgba(192,69,69,.12);border:1px solid rgba(192,69,69,.3);color:var(--red);border-radius:6px;padding:2px 8px">未繳費</span>`;
 }

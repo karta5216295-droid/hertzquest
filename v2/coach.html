@@ -187,9 +187,15 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
         <div class="form-group"><label>負責教練</label><input type="text" id="f-coach" placeholder="教練姓名"></div>
         <div class="form-group"><label>費用（NT$）</label><input type="number" id="f-price" placeholder="0 免費" min="0"></div>
       </div>
-      <div class="form-group">
-        <label>有證名額上限（無證固定 4 位）</label>
-        <input type="number" id="f-max" placeholder="預設 2" min="0" max="50">
+      <div class="form-row">
+        <div class="form-group">
+          <label>無照名額</label>
+          <input type="number" id="f-uncert-max" placeholder="預設 4" min="0" max="30" value="4">
+        </div>
+        <div class="form-group">
+          <label>有照名額</label>
+          <input type="number" id="f-max" placeholder="預設 2" min="0" max="50" value="2">
+        </div>
       </div>
       <button class="btn btn-primary" id="create-btn" onclick="createSession()">建立團練</button>
     </div>
@@ -315,7 +321,7 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzBy8q-19g_uRMbaEKRULHcd9xdp0k9Vv3RN0-5xV76cAGHEybC7Y_R0yYwpfS7G1SP1w/exec';
-const MAX_UNCERT = 4;
+const DEFAULT_UNCERT_MAX = 4;
 
 let pwd = '';
 let allSessions = [];
@@ -377,9 +383,12 @@ function renderSessions() {
     return;
   }
   el.innerHTML = allSessions.map(s => {
+    const uncertMax   = Number(s.uncertMax || DEFAULT_UNCERT_MAX);
+    const certMax     = Math.max(0, Number(s.maxSpots) - uncertMax);
     const uncertCount = Number(s.uncertCount || 0);
-    const certCount   = Number(s.enrollCount || 0) - uncertCount;
-    const uncertLeft  = Math.max(0, MAX_UNCERT - uncertCount);
+    const certCount   = Math.max(0, Number(s.enrollCount || 0) - uncertCount);
+    const uncertLeft  = Math.max(0, uncertMax - uncertCount);
+    const certLeft    = Math.max(0, certMax - certCount);
     return `
     <div class="session-card">
       <div class="session-header">
@@ -395,19 +404,19 @@ function renderSessions() {
       </div>
       <div class="session-stats">
         <div class="stat-box"><div class="num">${s.enrollCount||0}</div><div class="lbl">已報名</div></div>
-        <div class="stat-box"><div class="num">${s.spotsLeft}</div><div class="lbl">剩餘名額</div></div>
-        <div class="stat-box"><div class="num">${s.maxSpots}</div><div class="lbl">名額上限</div></div>
+        <div class="stat-box"><div class="num">${uncertLeft}</div><div class="lbl">無照剩餘</div></div>
+        <div class="stat-box"><div class="num">${certLeft}</div><div class="lbl">有照剩餘</div></div>
       </div>
       <div class="cert-bar">
         <div class="cert-bar-item">
-          <div class="cert-bar-num" style="color:${uncertLeft>0?'#FFB030':'#E05050'}">${uncertCount}/${MAX_UNCERT}</div>
-          <div class="cert-bar-lbl">無證</div>
+          <div class="cert-bar-num" style="color:${uncertLeft>0?'#FFB030':'#E05050'}">${uncertCount}/${uncertMax}</div>
+          <div class="cert-bar-lbl">無照</div>
         </div>
-        <div class="cert-bar-item"><div class="cert-bar-num" style="color:#00C9B1">${certCount}</div><div class="cert-bar-lbl">有證</div></div>
-        <div class="cert-bar-item"><div class="cert-bar-num" style="color:${uncertLeft>0?'#00C9B1':'#E05050'}">${uncertLeft}</div><div class="cert-bar-lbl">無證剩餘</div></div>
-        <div class="cert-bar-item"><div class="cert-bar-num" style="color:#00C9B1">${s.spotsLeft}</div><div class="cert-bar-lbl">有證剩餘</div></div>
+        <div class="cert-bar-item"><div class="cert-bar-num" style="color:#00C9B1">${certCount}/${certMax}</div><div class="cert-bar-lbl">有照</div></div>
+        <div class="cert-bar-item"><div class="cert-bar-num" style="color:${uncertLeft>0?'#00C9B1':'#E05050'}">${uncertLeft}</div><div class="cert-bar-lbl">無照剩餘</div></div>
+        <div class="cert-bar-item"><div class="cert-bar-num" style="color:${certLeft>0?'#00C9B1':'#E05050'}">${certLeft}</div><div class="cert-bar-lbl">有照剩餘</div></div>
       </div>
-      ${uncertCount >= MAX_UNCERT ? '<div class="uncert-warn">⚠️ 無證名額已滿（4/4）</div>' : ''}
+      ${uncertCount >= uncertMax ? `<div class="uncert-warn">⚠️ 無照名額已滿（${uncertMax}/${uncertMax}）</div>` : ''}
       <div class="session-actions">
         <button class="btn btn-ghost btn-sm" onclick="openEnrollModal('${s.id}','${esc(s.title)}')">查看名單</button>
         <button class="btn btn-ghost btn-sm" onclick="openEditModal('${s.id}')">編輯</button>
@@ -431,8 +440,8 @@ async function createSession() {
   if (!title || !date) { toast('請填寫標題和日期', true); return; }
   const btn = document.getElementById('create-btn');
   btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>建立中…';
-  const certMax = parseInt(document.getElementById('f-max').value) || 2;
-  const totalMax = MAX_UNCERT + certMax;
+  const uncertMax = parseInt(document.getElementById('f-uncert-max').value) || 4;
+  const certMax   = parseInt(document.getElementById('f-max').value) || 0;
   const res = await api({
     action: 'createSession', password: pwd, title, date,
     time:         document.getElementById('f-time').value,
@@ -440,14 +449,15 @@ async function createSession() {
     meetingPoint: document.getElementById('f-meet').value.trim(),
     description:  document.getElementById('f-desc').value.trim(),
     coach:        document.getElementById('f-coach').value.trim(),
-    maxSpots:     totalMax,
+    uncertMax,
     certMaxSpots: certMax,
     price:        document.getElementById('f-price').value || 0,
   });
   btn.disabled = false; btn.textContent = '建立團練';
   if (res.ok) {
     toast(res.message || '已建立');
-    ['f-title','f-date','f-time','f-location','f-meet','f-desc','f-coach','f-price','f-max'].forEach(id => document.getElementById(id).value = '');
+    ['f-title','f-date','f-time','f-location','f-meet','f-desc','f-coach','f-price','f-max'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    document.getElementById('f-uncert-max').value = '4';
     switchTab('sessions');
   } else toast(res.error || '建立失敗', true);
 }
@@ -547,9 +557,11 @@ async function openEnrollModal(sessionId, title) {
 
   const counts = { '無證':0, 'A1':0, 'A2pool':0, 'A2':0 };
   list.forEach(m => { if (counts[m.certLevel] !== undefined) counts[m.certLevel]++; });
+  const modalSession = allSessions.find(s => s.id === sessionId);
+  const modalUncertMax = Number(modalSession?.uncertMax || DEFAULT_UNCERT_MAX);
   document.getElementById('modal-cert-bar').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;padding:12px;background:#112840;border-radius:12px">
-      <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:${counts['無證']>=MAX_UNCERT?'#E05050':'#FFB030'}">${counts['無證']}/${MAX_UNCERT}</div><div style="font-size:10px;color:#7FBBCC">無 證</div></div>
+      <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:${counts['無證']>=modalUncertMax?'#E05050':'#FFB030'}">${counts['無證']}/${modalUncertMax}</div><div style="font-size:10px;color:#7FBBCC">無 照</div></div>
       <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:#00C9B1">${counts.A1}</div><div style="font-size:10px;color:#7FBBCC">A1</div></div>
       <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:#00C9B1">${counts.A2pool}</div><div style="font-size:10px;color:#7FBBCC">A2 Pool</div></div>
       <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:#00C9B1">${counts.A2}</div><div style="font-size:10px;color:#7FBBCC">A2</div></div>
@@ -656,7 +668,7 @@ async function saveEdit() {
     description:  document.getElementById('ef-desc').value.trim(),
     coach:        document.getElementById('ef-coach').value.trim(),
     price:        document.getElementById('ef-price').value,
-    maxSpots:     MAX_UNCERT + certMax,
+    uncertMax:    parseInt(document.getElementById('ef-uncert-max')?.value) || DEFAULT_UNCERT_MAX,
     certMaxSpots: certMax,
     active:       document.getElementById('ef-active').checked,
   });
@@ -675,7 +687,10 @@ async function loadMembers() {
   el.innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>載入中…</div>';
   const res = await api({ action: 'getMembers', password: pwd });
   if (!res.ok) { el.innerHTML = `<div style="color:#E05050">${res.error}</div>`; return; }
-  const members = res.members || [];
+  const members = (res.members || []).sort((a, b) => {
+    const order = { pending: 0, rejected: 1, approved: 2 };
+    return (order[a.approvalStatus||'pending']||0) - (order[b.approvalStatus||'pending']||0);
+  });
   if (!members.length) { el.innerHTML = '<div class="empty-state">尚無學員</div>'; return; }
 
   const pendingCount = members.filter(m => (m.approvalStatus||'pending') === 'pending').length;
