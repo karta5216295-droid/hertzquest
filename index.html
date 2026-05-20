@@ -670,11 +670,11 @@ function sessionCardHTML(s) {
       <div class="cert-spots-row">
         <div class="cert-spot-box">
           <div class="csb-label">無證名額</div>
-          <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertLeft}/${uncertMax}</div>
+          <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertCount}/${uncertMax}</div>
         </div>
         <div class="cert-spot-box">
           <div class="csb-label">有證名額</div>
-          <div class="csb-num ${spots>0?'csb-ok':'csb-full'}">${spots>0?'開放':'已滿'}</div>
+          <div class="csb-num ${spots>0?'csb-ok':'csb-full'}">${certCount}/${certMax}</div>
         </div>
       </div>
       <div class="sc-footer">
@@ -757,7 +757,7 @@ function openDetail(sessionId) {
       <div class="detail-row"><div class="detail-icon">${IC.cal}</div><div class="detail-text">${s.date}${s.time?' · '+s.time:''}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.person}</div><div class="detail-text">教練：${esc(s.coach)||'—'}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.price}</div><div class="detail-text">${s.price?'NT$ '+s.price:'免費'}</div></div>
-      <div class="detail-row"><div class="detail-icon">${IC.people}</div><div class="detail-text">無照：${uncertLeft}/${uncertMax}&nbsp;&nbsp;有照：${certLeft>0?`剩 ${certLeft} 位`:'已滿'}</div></div>
+      <div class="detail-row"><div class="detail-icon">${IC.people}</div><div class="detail-text">無照：${uncertCount}/${uncertMax}&nbsp;&nbsp;有照：${certCount}/${certMax}</div></div>
     </div>
     ${s.meetingPoint?`<div class="modal-section"><h4>集合地點</h4><div class="meeting-box"><div class="label">請在此集合</div><div class="value">${esc(s.meetingPoint)}</div></div></div>`:''}
     ${s.location?`<div class="modal-section"><h4>地點</h4><div class="detail-row"><div class="detail-icon">${IC.pin}</div><div class="detail-text">${esc(s.location)}</div></div></div>`:''}
