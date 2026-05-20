@@ -733,6 +733,7 @@ function openDetail(sessionId) {
   const uncertCount = Number(s.uncertCount||0);
   const certLeft = Math.max(0, certMax - Math.max(0, Number(s.enrollCount||0) - uncertCount));
   const uncertLeft = Math.max(0, uncertMax - uncertCount);
+  const certCount = Math.max(0, Number(s.enrollCount||0) - uncertCount);
 
   let actionHTML = '';
   if (s.enrolled) {
