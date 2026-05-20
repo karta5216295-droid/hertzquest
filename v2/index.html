@@ -725,8 +725,9 @@ function mineSessionCardHTML(s) {
 
 // ── Session Detail ────────────────────────────────
 function openDetail(sessionId) {
+  try {
   const s = sessions.find(s => s.id===sessionId);
-  if (!s) return;
+  if (!s) { toast('找不到活動：'+sessionId, 'error'); return; }
   selectedCert = null;
   const uncertMax = Number(s.uncertMax||4);
   const certMax = Math.max(0, Number(s.maxSpots) - uncertMax);
@@ -782,6 +783,7 @@ function openDetail(sessionId) {
     <div class="modal-actions">${actionHTML}<button class="btn btn-outline" onclick="closeModal()">關閉</button></div>`;
 
   document.getElementById('detail-modal').style.display = 'flex';
+  } catch(err) { toast('錯誤：'+err.message, 'error'); }
 }
 
 function selectCert(cert, btn) {
