@@ -222,7 +222,10 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
         <div class="form-group"><label>單人費用（NT$）*</label><input type="number" id="ft-price-single" placeholder="例：25000" min="0"></div>
         <div class="form-group"><label>雙人團報（NT$/人）</label><input type="number" id="ft-price-couple" placeholder="例：22000" min="0"></div>
       </div>
-      <div class="form-group"><label>名額上限</label><input type="number" id="ft-max" placeholder="預設 20" min="1"></div>
+      <div class="form-row">
+        <div class="form-group"><label>名額上限</label><input type="number" id="ft-max" placeholder="預設 20" min="1"></div>
+        <div class="form-group"><label>出團最低人數</label><input type="number" id="ft-min" placeholder="例：4（達標通知收款）" min="1"></div>
+      </div>
       <div class="form-group"><label>備註</label><textarea id="ft-notes" placeholder="集合地點、行前說明…"></textarea></div>
       <button class="btn btn-primary" id="create-trip-btn" onclick="createTrip()">建立旅行</button>
     </div>
@@ -530,12 +533,13 @@ async function createTrip() {
     inclusions:  document.getElementById('ft-inclusions').value.trim(),
     priceSingle, priceCouple: document.getElementById('ft-price-couple').value || 0,
     maxSpots:    document.getElementById('ft-max').value || 20,
+    minSpots:    document.getElementById('ft-min').value || 0,
     notes:       document.getElementById('ft-notes').value.trim(),
   });
   btn.disabled = false; btn.textContent = '建立旅行';
   if (res.ok) {
     toast(res.message || '旅行已建立');
-    ['ft-title','ft-country','ft-start','ft-end','ft-itinerary','ft-inclusions','ft-price-single','ft-price-couple','ft-max','ft-notes'].forEach(id => document.getElementById(id).value = '');
+    ['ft-title','ft-country','ft-start','ft-end','ft-itinerary','ft-inclusions','ft-price-single','ft-price-couple','ft-max','ft-min','ft-notes'].forEach(id => document.getElementById(id).value = '');
     switchTab('trips');
   } else toast(res.error || '建立失敗', true);
 }

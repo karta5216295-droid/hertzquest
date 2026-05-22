@@ -3,7 +3,7 @@
 // ================================================================
 const CFG = {
   SHEET_ID:   '1Vc0d6T0q-7NQav4ZJpfrJZ7e1BA-vbERMMmsFsyOMyE',
-  LINE_TOKEN: 'REPLACE_WITH_LINE_TOKEN',
+  LINE_TOKEN: 'NlJBb+6+N7ia+qn9TdbgMMy/Xs9GyPgZZoPfowe7xUAYhm6wxgupfK3shAZ+je8zzIt6eEBAvmGR+I+mqXvw/yLtl+m25Kj9Erh9q2q6JLhZvoZl+jK0jiP6unr1kIh4VG1UrhVj2I7k4autSZ52sgdB04t89/1O/w1cDnyilFU=',
   COACH_PWD:  'hertz2024',
   LIFF_ID:    '2010027559-58ppHoAr',
 };
@@ -412,18 +412,14 @@ function toSession(r) {
   if (rawTime instanceof Date) {
     var h = rawTime.getUTCHours();
     var m = rawTime.getUTCMinutes();
-    var ampm = h >= 12 ? 'PM' : 'AM';
-    var h12 = h % 12 || 12;
-    timeStr = h12 + ':' + String(m).padStart(2,'0') + ' ' + ampm;
+    timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
   } else if (rawTime) {
     var parts = String(rawTime).split(':');
     if (parts.length >= 2) {
       var hh = parseInt(parts[0], 10);
       var mm = parseInt(parts[1], 10);
       if (!isNaN(hh) && !isNaN(mm)) {
-        var ap = hh >= 12 ? 'PM' : 'AM';
-        var h12b = hh % 12 || 12;
-        timeStr = h12b + ':' + String(mm).padStart(2,'0') + ' ' + ap;
+        timeStr = String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
       } else {
         timeStr = String(rawTime);
       }
@@ -574,18 +570,19 @@ function formatBreath(val) {
   // Date 物件（Sheets Time 格式）
   // 必須用 getUTC* — GAS 把 Sheets 時間存成 UTC epoch，用 getHours() 會多加時區偏移（台灣 +8）
   if (val instanceof Date) {
-    var h = val.getUTCHours();
-    var m = val.getUTCMinutes();
-    var s = val.getUTCSeconds();
-    if (h > 0) return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-    return String(m) + ':' + String(s).padStart(2,'0');
+    // Sheets 把使用者輸入的 "3:00" 解讀成 3 小時 0 分
+    // 所以要把 getUTCHours() 當「分鐘」、getUTCMinutes() 當「秒數」讀回來
+    var mm = val.getUTCHours();
+    var ss = val.getUTCMinutes();
+    return mm + ':' + String(ss).padStart(2,'0');
   }
-  // 數字（Sheets 以小數天儲存，直接換算秒即可，無時區問題）
+  // 數字（Sheets 以小數天儲存）："3:00" = 3 小時 = 3/24
+  // 同理，把「小時部分」當分鐘，「分鐘部分」當秒數
   if (typeof val === 'number') {
-    var totalSec = Math.round(val * 86400);
-    var mm = Math.floor(totalSec / 60);
-    var ss2 = totalSec % 60;
-    return mm + ':' + String(ss2).padStart(2,'0');
+    var totalHoursFrac = val * 24;
+    var mm2 = Math.floor(totalHoursFrac);
+    var ss2 = Math.round((totalHoursFrac - mm2) * 60);
+    return mm2 + ':' + String(ss2).padStart(2,'0');
   }
   return String(val);
 }
@@ -605,7 +602,14 @@ function initTripSheets() {
   var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
   if (!ss.getSheetByName('Trips')) {
     var sh = ss.insertSheet('Trips');
-    sh.appendRow(['id','country','title','itinerary','inclusions','priceSingle','priceCouple','startDate','endDate','maxSpots','active','notes','createdAt']);
+    sh.appendRow(['id','country','title','itinerary','inclusions','priceSingle','priceCouple','startDate','endDate','maxSpots','minSpots','active','notes','createdAt']);
+  } else {
+    // Add minSpots column if missing (backward compat)
+    var sh = ss.getSheetByName('Trips');
+    var headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0];
+    if (headers.indexOf('minSpots') === -1) {
+      sh.getRange(1, sh.getLastColumn()+1).setValue('minSpots');
+    }
   }
   if (!ss.getSheetByName('TripEnrollments')) {
     var sh2 = ss.insertSheet('TripEnrollments');
@@ -622,7 +626,7 @@ function createTrip(data) {
     var id = 'trip_' + Date.now();
     sh.appendRow([id, data.country||'', data.title||'', data.itinerary||'', data.inclusions||'',
       data.priceSingle||0, data.priceCouple||0, data.startDate||'', data.endDate||'',
-      data.maxSpots||20, true, data.notes||'', new Date().toISOString()]);
+      data.maxSpots||20, data.minSpots||0, true, data.notes||'', new Date().toISOString()]);
     return { ok: true, message: '旅行已建立', id: id };
   } catch(e) { return { ok: false, error: e.message }; }
 }
@@ -649,6 +653,8 @@ function getTrips(data) {
       var myEnrolls = enrollRows.filter(function(r){ return String(r[1]) === String(t.id); });
       t.enrollCount = myEnrolls.length;
       t.spotsLeft = Math.max(0, Number(t.maxSpots||20) - t.enrollCount);
+      t.minSpots = Number(t.minSpots||0);
+      t.minReached = t.minSpots > 0 ? t.enrollCount >= t.minSpots : true;
       if (lineUid) {
         var myRow = myEnrolls.find(function(r){ return String(r[2]) === String(lineUid); });
         t.enrolled = !!myRow;
@@ -688,12 +694,38 @@ function enrollTrip(data) {
       if (String(tripRows[j][0]) === String(tripId)) { tripRow = tripRows[j]; break; }
     }
     if (!tripRow) return { ok: false, error: '找不到旅行' };
-    var maxSpots = Number(tripRow[9] || 20);
+    // Find column indices by header
+    var tripHeaders = tripRows[0];
+    var idxMax = tripHeaders.indexOf('maxSpots');
+    var idxMin = tripHeaders.indexOf('minSpots');
+    var maxSpots = Number(tripRow[idxMax >= 0 ? idxMax : 9] || 20);
+    var minSpots = idxMin >= 0 ? Number(tripRow[idxMin] || 0) : 0;
+    var tripTitle = String(tripRow[2] || '');
     var currentCount = enrollRows.filter(function(r){ return String(r[1])===String(tripId); }).length;
     if (currentCount >= maxSpots) return { ok: false, error: '名額已滿' };
     enrollSh.appendRow(['te_'+Date.now(), tripId, lineUid,
       memberRow[C.M.NAME-1]||memberRow[C.M.DISPLAY-1]||'',
       memberRow[C.M.PHONE-1]||'', plan, new Date().toISOString()]);
+    var newCount = currentCount + 1;
+    // If minSpots just reached, notify all enrolled students for payment
+    if (minSpots > 0 && newCount === minSpots) {
+      var allEnrollRows = enrollSh.getDataRange().getValues().slice(1).filter(function(r){
+        return r[0] && String(r[1]) === String(tripId);
+      });
+      // Get UIDs of all enrolled members from Members sheet
+      var memberShAll = ss.getSheetByName('Members');
+      var allMemberRows = memberShAll ? memberShAll.getDataRange().getValues().slice(1) : [];
+      allEnrollRows.forEach(function(er) {
+        var enrolledUid = String(er[2]);
+        var phone = String(er[4]);
+        var lastFive = phone.length >= 5 ? phone.slice(-5) : phone;
+        sendLine(enrolledUid,
+          '🎉 【出團確認】' + tripTitle + '\n\n' +
+          '人數已達出團標準（' + minSpots + ' 人），旅行確認出發！\n\n' +
+          '請完成報名費收款，匯款後請告知末五碼：' + lastFive + '\n\n' +
+          '如有疑問請聯繫教練，謝謝！');
+      });
+    }
     return { ok: true, message: '報名成功' };
   } catch(e) { return { ok: false, error: e.message }; }
 }
@@ -771,6 +803,10 @@ function updateTrip(data) {
         if (data.active !== undefined) {
           var col = headers.indexOf('active');
           if (col >= 0) sh.getRange(i+1, col+1).setValue(data.active);
+        }
+        if (data.minSpots !== undefined) {
+          var colMin = headers.indexOf('minSpots');
+          if (colMin >= 0) sh.getRange(i+1, colMin+1).setValue(Number(data.minSpots)||0);
         }
         return { ok: true };
       }

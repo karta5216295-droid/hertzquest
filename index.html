@@ -274,6 +274,17 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <label>個人 LINE ID</label>
       <input id="reg-line-id" placeholder="請輸入你的 LINE ID">
     </div>
+    <div class="field" style="background:rgba(0,201,177,.05);border:1px solid rgba(0,201,177,.18);border-radius:14px;padding:14px 16px;">
+      <label style="color:var(--teal)">加入官方帳號（必填）</label>
+      <p style="font-size:12px;color:var(--t2);margin:6px 0 12px;line-height:1.7">請先加入「赫茲學員專屬」LINE 官方帳號，才能接收課程報名通知。</p>
+      <div style="text-align:center;margin-bottom:12px">
+        <a href="https://lin.ee/nsfE7DH" target="_blank"><img src="https://scdn.line-apps.com/n/line_add_friends/btn/zh-Hant.png" alt="加入好友" height="36" border="0"></a>
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="reg-line-confirm" style="width:18px;height:18px;accent-color:var(--teal);flex-shrink:0">
+        <span style="font-size:13px;color:var(--t2)">我已加入「赫茲學員專屬」官方帳號 ✓</span>
+      </label>
+    </div>
     <button class="btn btn-teal" id="reg-btn" onclick="submitRegister()">完成登記</button>
   </div>
 </div>
@@ -422,6 +433,7 @@ async function submitRegister() {
   const coachName = document.getElementById('reg-coach').value.trim();
   const lineId = document.getElementById('reg-line-id').value.trim();
   if (!name || !phone || !firstClassDate || !coachName || !lineId) { toast('請填寫所有欄位（包含 LINE ID）', 'error'); return; }
+  if (!document.getElementById('reg-line-confirm')?.checked) { toast('請先加入赫茲學員專屬官方帳號並勾選確認', 'error'); return; }
   const btn = document.getElementById('reg-btn');
   btn.disabled = true; btn.textContent = '登記中…';
   const res = await api({ action:'initMember', lineUid:profile.userId, displayName:profile.displayName, pictureUrl:profile.pictureUrl, realName:name, phone, firstClassDate, coachName, lineId });
@@ -684,6 +696,11 @@ function sessionCardHTML(s) {
         ${s.meetingPoint?`<div class="sc-row">${IC.map} 集合：<strong style="color:var(--t1)">${esc(s.meetingPoint)}</strong></div>`:''}
       </div>
       <div class="cert-spots-row">
+        ${certMax === 0 ? `
+        <div class="cert-spot-box" style="flex:1">
+          <div class="csb-label">剩餘名額</div>
+          <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertLeft}/${uncertMax}</div>
+        </div>` : `
         <div class="cert-spot-box">
           <div class="csb-label">無證名額</div>
           <div class="csb-num ${uncertLeft>0?'csb-ok':'csb-full'}">${uncertCount}/${uncertMax}</div>
@@ -691,7 +708,7 @@ function sessionCardHTML(s) {
         <div class="cert-spot-box">
           <div class="csb-label">有證名額</div>
           <div class="csb-num ${spots>0?'csb-ok':'csb-full'}">${certCount}/${certMax}</div>
-        </div>
+        </div>`}
       </div>
       <div class="sc-footer">
         <span class="spots-badge ${spotsClass}">${spotsLabel}</span>
@@ -737,12 +754,17 @@ function openDetail(sessionId) {
 
   let actionHTML = '';
   if (s.enrolled) {
-    const certLabel = s.certLevel ? certName(s.certLevel) : '';
+    const certLabel = (certMax === 0 || !s.certLevel) ? '' : certName(s.certLevel);
     actionHTML = `
       <div class="enrolled-banner">${IC.check}<span>您已報名${certLabel?' · '+certLabel:''}</span></div>
       <button class="btn btn-red" onclick="cancelEnroll('${s.id}')">取消報名</button>`;
-  } else if (certLeft <= 0 && uncertLeft <= 0) {
+  } else if (uncertLeft <= 0 && (certMax === 0 || certLeft <= 0)) {
     actionHTML = `<button class="btn btn-outline" disabled>名額已滿</button>`;
+  } else if (certMax === 0) {
+    // No cert distinction — single enroll button
+    selectedCert = '無證';
+    actionHTML = `
+      <button class="btn btn-teal" onclick="enroll('${s.id}')">立即報名（剩 ${uncertLeft} 位）</button>`;
   } else {
     actionHTML = `
       <div style="font-size:11px;color:var(--t3);margin-bottom:8px;font-weight:700;letter-spacing:.3px">選擇您的證照等級</div>
@@ -767,6 +789,10 @@ function openDetail(sessionId) {
       <button class="btn btn-teal" id="session-enroll-btn" onclick="enroll('${s.id}')" disabled style="opacity:.32">請先選擇證照等級</button>`;
   }
 
+  const spotsInfoHTML = certMax === 0
+    ? `<div class="detail-row"><div class="detail-icon">${IC.people}</div><div class="detail-text">名額：${uncertLeft}/${uncertMax}</div></div>`
+    : `<div class="detail-row"><div class="detail-icon">${IC.people}</div><div class="detail-text">無照：${uncertCount}/${uncertMax}&nbsp;&nbsp;有照：${certCount}/${certMax}</div></div>`;
+
   document.getElementById('modal-inner').innerHTML = `
     <div class="modal-title">${esc(s.title)}</div>
     <div class="modal-section">
@@ -774,7 +800,7 @@ function openDetail(sessionId) {
       <div class="detail-row"><div class="detail-icon">${IC.cal}</div><div class="detail-text">${s.date}${s.time?' · '+s.time:''}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.person}</div><div class="detail-text">教練：${esc(s.coach)||'—'}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.price}</div><div class="detail-text">${s.price?'NT$ '+s.price:'免費'}</div></div>
-      <div class="detail-row"><div class="detail-icon">${IC.people}</div><div class="detail-text">無照：${uncertCount}/${uncertMax}&nbsp;&nbsp;有照：${certCount}/${certMax}</div></div>
+      ${spotsInfoHTML}
     </div>
     ${s.meetingPoint?`<div class="modal-section"><h4>集合地點</h4><div class="meeting-box"><div class="label">請在此集合</div><div class="value">${esc(s.meetingPoint)}</div></div></div>`:''}
     ${s.location?`<div class="modal-section"><h4>地點</h4><div class="detail-row"><div class="detail-icon">${IC.pin}</div><div class="detail-text">${esc(s.location)}</div></div></div>`:''}
