@@ -417,9 +417,21 @@ function renderSessions() {
       </div>
       <div class="session-stats">
         <div class="stat-box"><div class="num">${s.enrollCount||0}</div><div class="lbl">已報名</div></div>
+        ${certMax === 0 ? `
+        <div class="stat-box"><div class="num" style="color:${uncertLeft>0?'#FFB030':'#E05050'}">${uncertLeft}</div><div class="lbl">剩餘名額</div></div>
+        <div class="stat-box"><div class="num">${uncertMax}</div><div class="lbl">名額上限</div></div>
+        ` : `
         <div class="stat-box"><div class="num">${uncertLeft}</div><div class="lbl">無照剩餘</div></div>
         <div class="stat-box"><div class="num">${certLeft}</div><div class="lbl">有照剩餘</div></div>
+        `}
       </div>
+      ${certMax === 0 ? `
+      <div class="cert-bar" style="grid-template-columns:1fr 1fr">
+        <div class="cert-bar-item"><div class="cert-bar-num" style="color:${uncertLeft>0?'#00C9B1':'#E05050'}">${uncertCount}/${uncertMax}</div><div class="cert-bar-lbl">已報名/總名額</div></div>
+        <div class="cert-bar-item"><div class="cert-bar-num" style="color:#7FBBCC;font-size:11px;padding-top:4px">不分證照</div><div class="cert-bar-lbl">統一名額</div></div>
+      </div>
+      ${uncertCount >= uncertMax ? `<div class="uncert-warn">⚠️ 名額已滿（${uncertMax}/${uncertMax}）</div>` : ''}
+      ` : `
       <div class="cert-bar">
         <div class="cert-bar-item">
           <div class="cert-bar-num" style="color:${uncertLeft>0?'#FFB030':'#E05050'}">${uncertCount}/${uncertMax}</div>
@@ -430,6 +442,7 @@ function renderSessions() {
         <div class="cert-bar-item"><div class="cert-bar-num" style="color:${certLeft>0?'#00C9B1':'#E05050'}">${certLeft}</div><div class="cert-bar-lbl">有照剩餘</div></div>
       </div>
       ${uncertCount >= uncertMax ? `<div class="uncert-warn">⚠️ 無照名額已滿（${uncertMax}/${uncertMax}）</div>` : ''}
+      `}
       <div class="session-actions">
         <button class="btn btn-ghost btn-sm" onclick="openEnrollModal('${s.id}','${esc(s.title)}')">查看名單</button>
         <button class="btn btn-ghost btn-sm" onclick="openEditModal('${s.id}')">編輯</button>

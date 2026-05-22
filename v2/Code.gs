@@ -141,8 +141,10 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode}) {
   const uncertEnrolled = allForSession.filter(r => r[C.E.CERT-1]==='無證').length;
   const uncertMax = Number(sData[C.S.UNCERT_MAX-1])||4;
   const certMax = Number(sData[C.S.MAX-1]) - uncertMax;
-  if (certLevel==='無證') {
-    if (uncertEnrolled >= uncertMax) return {ok:false, error:`無照名額已滿（${uncertMax}/${uncertMax}）`};
+  // certMax=0 表示不分證照，強制當無證處理
+  const effectiveCertLevel = certMax === 0 ? '無證' : certLevel;
+  if (effectiveCertLevel === '無證') {
+    if (uncertEnrolled >= uncertMax) return {ok:false, error:`名額已滿（${uncertMax}/${uncertMax}）`};
   } else {
     const certEnrolled = totalEnrolled - uncertEnrolled;
     if (certMax > 0 && certEnrolled >= certMax) return {ok:false, error:'有照名額已滿'};
@@ -151,7 +153,7 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode}) {
 
   // 寫入報名
   const id='E'+Date.now();
-  eSheet.appendRow([id,sessionId,lineUid,member[C.M.NAME-1],member[C.M.PHONE-1],certLevel||'',new Date(),transferCode||'','pending']);
+  eSheet.appendRow([id,sessionId,lineUid,member[C.M.NAME-1],member[C.M.PHONE-1],effectiveCertLevel||'',new Date(),transferCode||'','pending']);
   sSheet.getRange(sRowIdx, C.S.LEFT).setValue(Number(sData[C.S.LEFT-1])-1);
 
   // LINE 確認通知
