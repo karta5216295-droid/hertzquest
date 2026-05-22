@@ -681,9 +681,11 @@ function sessionCardHTML(s) {
   const certCount = Math.max(0, Number(s.enrollCount||0) - uncertCount);
   const uncertLeft = Math.max(0, uncertMax - uncertCount);
   const certLeft = Math.max(0, certMax - certCount);
-  const spots = certLeft; // cert spots remaining
+  const spots = certMax === 0 ? uncertLeft : certLeft;
   const spotsClass = spots<=0?'spots-full':spots<=3?'spots-few':'spots-ok';
-  const spotsLabel = spots<=0?'有照已滿':`有照剩 ${spots} 位`;
+  const spotsLabel = certMax === 0
+    ? (spots<=0?'名額已滿':`剩 ${spots} 位`)
+    : (spots<=0?'有照已滿':`有照剩 ${spots} 位`);
   return `
     <div class="session-card ${s.enrolled?'enrolled':''}" onclick="openDetail('${s.id}')">
       <div class="sc-header">
