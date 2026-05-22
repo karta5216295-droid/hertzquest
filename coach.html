@@ -187,7 +187,13 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
         <div class="form-group"><label>負責教練</label><input type="text" id="f-coach" placeholder="教練姓名"></div>
         <div class="form-group"><label>費用（NT$）</label><input type="number" id="f-price" placeholder="0 免費" min="0"></div>
       </div>
-      <div class="form-row">
+      <div class="form-group" style="margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600">
+          <input type="checkbox" id="f-no-cert" onchange="toggleCertFields()" style="width:16px;height:16px;accent-color:#00C9B1">
+          不分證照（統一名額）
+        </label>
+      </div>
+      <div id="cert-split-row" class="form-row">
         <div class="form-group">
           <label>無照名額</label>
           <input type="number" id="f-uncert-max" placeholder="預設 4" min="0" max="30" value="4">
@@ -196,6 +202,10 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
           <label>有照名額</label>
           <input type="number" id="f-max" placeholder="預設 2" min="0" max="50" value="2">
         </div>
+      </div>
+      <div id="no-cert-row" class="form-group" style="display:none">
+        <label>總名額</label>
+        <input type="number" id="f-total-max" placeholder="預設 4" min="1" max="50" value="4">
       </div>
       <button class="btn btn-primary" id="create-btn" onclick="createSession()">建立團練</button>
     </div>
@@ -437,14 +447,23 @@ async function toggleActive(id, current) {
 }
 
 // ── 新增團練 ──────────────────────────────────────
+function toggleCertFields() {
+  const noCert = document.getElementById('f-no-cert').checked;
+  document.getElementById('cert-split-row').style.display = noCert ? 'none' : '';
+  document.getElementById('no-cert-row').style.display = noCert ? '' : 'none';
+}
+
 async function createSession() {
   const title = document.getElementById('f-title').value.trim();
   const date  = document.getElementById('f-date').value;
   if (!title || !date) { toast('請填寫標題和日期', true); return; }
   const btn = document.getElementById('create-btn');
   btn.disabled = true; btn.innerHTML = '<span class="loading-spinner"></span>建立中…';
-  const uncertMax = parseInt(document.getElementById('f-uncert-max').value) || 4;
-  const certMax   = parseInt(document.getElementById('f-max').value) || 0;
+  const noCert = document.getElementById('f-no-cert').checked;
+  const uncertMax = noCert
+    ? (parseInt(document.getElementById('f-total-max').value) || 4)
+    : (parseInt(document.getElementById('f-uncert-max').value) || 4);
+  const certMax = noCert ? 0 : (parseInt(document.getElementById('f-max').value) || 0);
   const res = await api({
     action: 'createSession', password: pwd, title, date,
     time:         document.getElementById('f-time').value,
@@ -459,8 +478,10 @@ async function createSession() {
   btn.disabled = false; btn.textContent = '建立團練';
   if (res.ok) {
     toast(res.message || '已建立');
-    ['f-title','f-date','f-time','f-location','f-meet','f-desc','f-coach','f-price','f-max'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    ['f-title','f-date','f-time','f-location','f-meet','f-desc','f-coach','f-price','f-max','f-total-max'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
     document.getElementById('f-uncert-max').value = '4';
+    document.getElementById('f-no-cert').checked = false;
+    toggleCertFields();
     switchTab('sessions');
   } else toast(res.error || '建立失敗', true);
 }
