@@ -57,8 +57,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── Register ── */
-#register-screen{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
-.reg-card{background:var(--card);border-radius:26px;border:1px solid var(--border);padding:32px 24px;width:100%;max-width:400px;}
+#register-screen{position:fixed;inset:0;background:var(--bg);z-index:100;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0));}
+.reg-card{background:var(--card);border-radius:26px;border:1px solid var(--border);padding:32px 24px;width:100%;max-width:400px;margin:auto;}
 .reg-logo{text-align:center;margin-bottom:28px;}
 .reg-logo .rl-mark{width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,rgba(0,201,177,.14),rgba(0,80,160,.14));border:1px solid rgba(0,201,177,.28);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
 .reg-logo .rl-mark svg{width:26px;height:26px;}
