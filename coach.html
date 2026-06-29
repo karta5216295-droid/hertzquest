@@ -245,6 +245,9 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #0A16
   <div id="panel-members" class="tab-content">
     <div class="card">
       <div class="card-title">已登記學員</div>
+      <div class="form-group" style="margin-bottom:14px">
+        <input type="text" id="member-search" placeholder="🔍 搜尋姓名／電話／LINE／教練…" oninput="renderMembersList()" autocomplete="off">
+      </div>
       <div id="members-list"></div>
     </div>
   </div>
@@ -339,6 +342,7 @@ const DEFAULT_UNCERT_MAX = 4;
 let pwd = '';
 let allSessions = [];
 let allTrips = [];
+let allMembers = [];
 let currentSessionId = '';
 let currentTripId = '';
 
@@ -725,17 +729,31 @@ async function loadMembers() {
   el.innerHTML = '<div style="text-align:center;padding:20px;color:#7FBBCC"><span class="loading-spinner"></span>載入中…</div>';
   const res = await api({ action: 'getMembers', password: pwd });
   if (!res.ok) { el.innerHTML = `<div style="color:#E05050">${res.error}</div>`; return; }
-  const members = (res.members || []).sort((a, b) => {
+  allMembers = (res.members || []).sort((a, b) => {
     const order = { pending: 0, rejected: 1, approved: 2 };
     return (order[a.approvalStatus||'pending']||0) - (order[b.approvalStatus||'pending']||0);
   });
-  if (!members.length) { el.innerHTML = '<div class="empty-state">尚無學員</div>'; return; }
+  renderMembersList();
+}
+
+function renderMembersList() {
+  const el = document.getElementById('members-list');
+  if (!allMembers.length) { el.innerHTML = '<div class="empty-state">尚無學員</div>'; return; }
+
+  const q = (document.getElementById('member-search')?.value || '').trim().toLowerCase();
+  const members = q
+    ? allMembers.filter(m => [m.realName, m.phone, m.displayName, m.lineId, m.coachName]
+        .some(v => String(v||'').toLowerCase().includes(q)))
+    : allMembers;
+
+  if (!members.length) { el.innerHTML = `<div class="empty-state">找不到符合「${esc(q)}」的學員</div>`; return; }
 
   const pendingCount = members.filter(m => (m.approvalStatus||'pending') === 'pending').length;
   let html = '';
   if (pendingCount) {
     html += `<div style="font-size:12px;color:#FFB030;font-weight:700;margin-bottom:10px;padding:8px 12px;background:rgba(255,176,48,.08);border:1px solid rgba(255,176,48,.3);border-radius:10px">⚠️ 有 ${pendingCount} 位學員待審核</div>`;
   }
+  html += `<div style="font-size:11px;color:#7FBBCC;margin-bottom:10px">共 ${members.length} 位${q?'（已篩選）':''}</div>`;
 
   html += members.map(m => {
     const approval = m.approvalStatus || 'pending';
