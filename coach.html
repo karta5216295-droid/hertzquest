@@ -360,6 +360,13 @@ let allMembers = [];
 let currentSessionId = '';
 let currentTripId = '';
 
+// AIDA2 過課技能檢核（成績用，與帳號審核獨立）
+const A2_SKILLS = {
+  '平靜水域': ['放鬆課程','呼吸課程','靜態閉氣潛伴制度','靜態閉氣≥2分鐘','靜態閉氣救援','平潛潛伴制度','動態平潛姿態','動態平潛≥40M','動態平潛救援'],
+  '開放水域': ['攀繩下潛12~20M','安全繩使用','可控制轉身','平衡耳壓','躬身下潛','恆重下潛姿態','對繩下潛','恆重下潛12~20M','水面救援','5~10M水下救援','潛伴水面戒護','潛伴水下10M戒護'],
+};
+const A2_TOTAL = A2_SKILLS['平靜水域'].length + A2_SKILLS['開放水域'].length;
+
 async function login() {
   const p = document.getElementById('pwd-input').value.trim();
   if (!p) return;
@@ -774,12 +781,15 @@ function renderMembersList() {
     const approvalClass = approval === 'approved' ? 'approval-approved' : approval === 'rejected' ? 'approval-rejected' : 'approval-pending';
     const approvalLabel = approval === 'approved' ? '已審核' : approval === 'rejected' ? '未通過' : '待審核';
     const mid = esc(m.id);
+    const skillDone = m.skills ? Object.values(m.skills).filter(Boolean).length : 0;
+    const a2Pass = skillDone >= A2_TOTAL;
+    const skillChip = `<span class="cert-badge" style="${a2Pass?'background:rgba(0,201,177,.18);border-color:#00C9B1;color:#00C9B1':'background:rgba(201,168,76,.12);border-color:rgba(201,168,76,.4);color:#C9A84C'}">A2 ${skillDone}/${A2_TOTAL}${a2Pass?' 過課':''}</span>`;
     return `
     <div class="member-card${approval === 'pending' ? ' pending-card' : ''}" id="mcard-${mid}">
       <div class="member-card-header">
         <div>
           <div class="member-card-name">${esc(m.realName)}</div>
-          <div style="margin-top:4px"><span class="approval-badge ${approvalClass}">${approvalLabel}</span>${m.certLevel ? ` <span class="cert-badge">${esc(m.certLevel)}</span>` : ''}</div>
+          <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap"><span class="approval-badge ${approvalClass}">${approvalLabel}</span>${m.certLevel ? `<span class="cert-badge">${esc(m.certLevel)}</span>` : ''}${skillChip}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
           <div style="font-size:12px;color:#7FAFC5">${esc(m.phone||'')}</div>
@@ -820,6 +830,19 @@ function renderMembersList() {
           </select>
         </div>
         <button class="btn btn-ghost btn-sm" style="width:100%" onclick="updateStudentStatsAction('${mid}')">儲存資料</button>
+
+        <div style="border-top:1px solid #1A3852;margin-top:14px;padding-top:12px">
+          <div style="font-size:12px;font-weight:700;color:#00C9B1;margin-bottom:4px">AIDA2 技能檢核（成績）</div>
+          <div style="font-size:11px;color:#7FAFC5;margin-bottom:10px">全部勾選代表 A2 過課，與帳號審核獨立</div>
+          ${Object.keys(A2_SKILLS).map(group => `
+            <div style="font-size:11px;font-weight:700;color:#C9A84C;margin:8px 0 4px">${group}</div>
+            ${A2_SKILLS[group].map(item => `
+              <label style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;color:#EEF4FF;cursor:pointer">
+                <input type="checkbox" class="skill-cb-${mid}" data-skill="${esc(item)}" ${m.skills && m.skills[item] ? 'checked' : ''} style="width:15px;height:15px;accent-color:#00C9B1;flex-shrink:0">${esc(item)}
+              </label>`).join('')}
+          `).join('')}
+          <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px" onclick="updateStudentSkillsAction('${mid}','${esc(m.lineUid||'')}')">儲存技能檢核</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -844,6 +867,15 @@ async function updateStudentStatsAction(memberId) {
   const certLevel = document.getElementById('edit-cert-'   + memberId)?.value;
   const res = await api({ action: 'updateStudentStats', password: pwd, memberId, depth, breathHold, certLevel });
   if (res.ok) { toast('資料已儲存'); loadMembers(); }
+  else toast(res.error || '儲存失敗', true);
+}
+
+async function updateStudentSkillsAction(memberId, lineUid) {
+  const boxes = document.querySelectorAll('.skill-cb-' + memberId);
+  const skills = {};
+  boxes.forEach(b => { skills[b.dataset.skill] = b.checked; });
+  const res = await api({ action: 'updateStudentSkills', password: pwd, memberId, lineUid, skills });
+  if (res.ok) { toast('技能檢核已儲存'); loadMembers(); }
   else toast(res.error || '儲存失敗', true);
 }
 

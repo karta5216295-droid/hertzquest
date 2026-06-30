@@ -347,6 +347,15 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       </div>
       <span class="tab-label">我的報名</span>
     </button>
+    <button class="tab-btn" id="tab-progress" onclick="switchTab('progress')">
+      <div class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 11l3 3 8-8"/>
+          <path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>
+        </svg>
+      </div>
+      <span class="tab-label">課程進度</span>
+    </button>
     <button class="tab-btn" id="tab-profile" onclick="switchTab('profile')">
       <div class="tab-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -392,6 +401,13 @@ let profile = null, member = null;
 let sessions = [], trips = [];
 let currentTab = 'sessions';
 let selectedCert = null, selectedPlan = null;
+
+// AIDA2 過課技能檢核（成績，唯讀顯示）
+const A2_SKILLS = {
+  '平靜水域': ['放鬆課程','呼吸課程','靜態閉氣潛伴制度','靜態閉氣≥2分鐘','靜態閉氣救援','平潛潛伴制度','動態平潛姿態','動態平潛≥40M','動態平潛救援'],
+  '開放水域': ['攀繩下潛12~20M','安全繩使用','可控制轉身','平衡耳壓','躬身下潛','恆重下潛姿態','對繩下潛','恆重下潛12~20M','水面救援','5~10M水下救援','潛伴水面戒護','潛伴水下10M戒護'],
+};
+const A2_TOTAL = A2_SKILLS['平靜水域'].length + A2_SKILLS['開放水域'].length;
 
 // ── Init ──────────────────────────────────────────
 async function init() {
@@ -455,7 +471,7 @@ function showApp() {
 // ── Tabs ──────────────────────────────────────────
 function switchTab(tab) {
   currentTab = tab;
-  ['sessions','trips','mine','profile'].forEach(t => {
+  ['sessions','trips','mine','progress','profile'].forEach(t => {
     document.getElementById('tab-'+t)?.classList.toggle('active', t===tab);
   });
   renderTab(tab);
@@ -498,6 +514,12 @@ async function renderTab(tab) {
     }
     listEl.innerHTML = html || `<div class="empty">${IC.wave}<p>還沒有報名紀錄<br>快去報名你的第一場活動！</p><button onclick="switchTab('sessions')" style="margin-top:4px;background:transparent;border:none;color:var(--teal);font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.2px">去看活動 →</button></div>`;
 
+  } else if (tab === 'progress') {
+    el.innerHTML = `<div class="section-pad"><div class="section-header"><div class="sh-line"></div><div class="section-title">AIDA2 課程進度</div></div><div id="progress-body"><div class="empty">${IC.wave}<p>載入中…</p></div></div></div>`;
+    const res = await api({ action:'getStudentSkills', lineUid:profile.userId });
+    const skills = (res.ok && res.skills) ? res.skills : {};
+    renderProgress(skills);
+
   } else {
     const approvalStatus = member?.approvalStatus || 'pending';
     const approvalBadge = approvalStatus === 'approved'
@@ -532,6 +554,42 @@ async function renderTab(tab) {
         </div>
       </div>`;
   }
+}
+
+// ── Progress (AIDA2 技能進度) ──────────────────────
+function renderProgress(skills) {
+  const body = document.getElementById('progress-body');
+  if (!body) return;
+  const done = Object.values(skills||{}).filter(Boolean).length;
+  const pct = Math.round(done / A2_TOTAL * 100);
+  const passed = done >= A2_TOTAL;
+
+  let html = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:14px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:15px;font-weight:800;color:var(--t1)">${passed?'🎉 已完成 A2 過課標準':'完成進度'}</div>
+        <div style="font-size:13px;font-weight:800;color:${passed?'var(--teal)':'var(--gold)'}">${done}/${A2_TOTAL}</div>
+      </div>
+      <div style="height:8px;background:var(--card2);border-radius:6px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${passed?'var(--teal)':'var(--gold)'};border-radius:6px;transition:width .4s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--t3);margin-top:8px">由教練檢核，完成後此處會打勾 ✓</div>
+    </div>`;
+
+  Object.keys(A2_SKILLS).forEach(group => {
+    html += `<div class="loc-group-header">${IC.wave} ${group}</div>`;
+    A2_SKILLS[group].forEach(item => {
+      const ok = !!(skills && skills[item]);
+      html += `
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;margin-bottom:6px;background:var(--card);border:1px solid ${ok?'rgba(0,201,177,.28)':'var(--border)'};border-radius:12px">
+          <div style="width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;${ok?'background:rgba(0,201,177,.15);border:1.5px solid var(--teal);color:var(--teal)':'border:1.5px solid var(--border2);color:var(--t3)'}">
+            ${ok?'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L19 7"/></svg>':''}
+          </div>
+          <div style="font-size:14px;color:${ok?'var(--t1)':'var(--t2)'}">${item}</div>
+        </div>`;
+    });
+  });
+  body.innerHTML = html;
 }
 
 // ── Greeting Banner ───────────────────────────────
