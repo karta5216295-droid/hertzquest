@@ -832,7 +832,10 @@ function renderMembersList() {
         <button class="btn btn-ghost btn-sm" style="width:100%" onclick="updateStudentStatsAction('${mid}')">儲存資料</button>
 
         <div style="border-top:1px solid #1A3852;margin-top:14px;padding-top:12px">
-          <div style="font-size:12px;font-weight:700;color:#00C9B1;margin-bottom:4px">AIDA2 技能檢核（成績）</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+            <div style="font-size:12px;font-weight:700;color:#00C9B1">AIDA2 技能檢核（成績）</div>
+            <button class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:11px" onclick="toggleAllSkills('${mid}')">全選 / 取消</button>
+          </div>
           <div style="font-size:11px;color:#7FAFC5;margin-bottom:10px">全部勾選代表 A2 過課，與帳號審核獨立</div>
           ${Object.keys(A2_SKILLS).map(group => `
             <div style="font-size:11px;font-weight:700;color:#C9A84C;margin:8px 0 4px">${group}</div>
@@ -868,6 +871,12 @@ async function updateStudentStatsAction(memberId) {
   const res = await api({ action: 'updateStudentStats', password: pwd, memberId, depth, breathHold, certLevel });
   if (res.ok) { toast('資料已儲存'); loadMembers(); }
   else toast(res.error || '儲存失敗', true);
+}
+
+function toggleAllSkills(memberId) {
+  const boxes = document.querySelectorAll('.skill-cb-' + memberId);
+  const allChecked = Array.from(boxes).every(b => b.checked);
+  boxes.forEach(b => { b.checked = !allChecked; });
 }
 
 async function updateStudentSkillsAction(memberId, lineUid) {
