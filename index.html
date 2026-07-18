@@ -409,6 +409,18 @@ const A2_SKILLS = {
 };
 const A2_TOTAL = A2_SKILLS['平靜水域'].length + A2_SKILLS['開放水域'].length;
 
+// 裝備日租（勾選後與團練費一起計算總額）
+const RENTAL_ITEMS = [
+  { key:'fins',   name:'塑膠長蛙',                     price:250, needSize:true },
+  { key:'mask',   name:'面鏡附呼吸管',                 price:200 },
+  { key:'suit',   name:'防寒衣',                       price:300, needBody:true },
+  { key:'belt',   name:'配重帶+兩公斤',                price:150 },
+  { key:'lead',   name:'鉛塊',                         price:50,  perUnit:true },
+  { key:'buoy',   name:'自由潛水浮球附繩子',           price:400 },
+  { key:'full',   name:'全套裝備（長蛙/面鏡呼吸管/防寒衣）', price:700, needSize:true, needBody:true },
+];
+const FIN_SIZES = ['XXS','XS','S','M','L'];
+
 // ── Init ──────────────────────────────────────────
 async function init() {
   try {
@@ -1005,6 +1017,20 @@ function closeModal(e) {
 function enroll(sessionId) {
   if (!selectedCert) { toast('請先選擇證照等級', 'error'); return; }
   const s = sessions.find(s=>s.id===sessionId);
+  const rentalHTML = RENTAL_ITEMS.map(it => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:var(--card2);border:1px solid var(--border);border-radius:12px;cursor:pointer">
+      <input type="checkbox" class="rent-cb" data-key="${it.key}" onchange="onRentChange()" style="width:17px;height:17px;accent-color:var(--teal);flex-shrink:0">
+      <span style="flex:1;font-size:13px;color:var(--t1)">${it.name}</span>
+      <span style="font-size:12px;font-weight:800;color:var(--gold)">$${it.price}${it.perUnit?'/顆':''}</span>
+    </label>
+    ${it.perUnit?`<div id="rent-opt-${it.key}" style="display:none;margin:-2px 0 8px 27px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2)">數量
+        <select id="rent-qty-${it.key}" onchange="onRentChange()" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--t1);padding:6px 10px;font-size:13px">
+          ${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n} 顆</option>`).join('')}
+        </select>
+      </div>
+    </div>`:''}`).join('');
+
   document.getElementById('modal-inner').innerHTML = `
     <div class="modal-title">確認報名</div>
     <div class="modal-section">
@@ -1012,12 +1038,40 @@ function enroll(sessionId) {
       <div class="detail-row"><div class="detail-icon">${IC.book}</div><div class="detail-text">${esc(s?.title||'')}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.cal}</div><div class="detail-text">${s?.date||''}${s?.time?' · '+s.time:''}</div></div>
       <div class="detail-row"><div class="detail-icon">${IC.card}</div><div class="detail-text">證照等級：${certName(selectedCert)}</div></div>
-      ${s?.price?`<div class="detail-row"><div class="detail-icon">${IC.price}</div><div class="detail-text">費用：NT$ ${s.price}</div></div>`:''}
+      ${s?.price?`<div class="detail-row"><div class="detail-icon">${IC.price}</div><div class="detail-text">團練費用：NT$ ${s.price}</div></div>`:''}
+    </div>
+    <div class="modal-section">
+      <h4>裝備租借（選填）</h4>
+      ${rentalHTML}
+      <div id="rent-size-row" style="display:none;margin:10px 0">
+        <label style="display:block;font-size:11px;color:var(--t3);font-weight:800;margin-bottom:6px">蛙鞋尺寸</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${FIN_SIZES.map(sz=>`<button type="button" class="fin-size-btn" data-size="${sz}" onclick="selectFinSize('${sz}')" style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card2);color:var(--t1);font-size:13px;font-weight:700;cursor:pointer">${sz}</button>`).join('')}
+        </div>
+      </div>
+      <div id="rent-body-row" style="display:none;margin:10px 0">
+        <label style="display:block;font-size:11px;color:var(--t3);font-weight:800;margin-bottom:6px">防寒衣尺寸（請填身高體重）</label>
+        <div style="display:flex;gap:8px">
+          <input id="rent-height" placeholder="身高 cm" type="text" inputmode="numeric" style="flex:1;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:11px 13px;color:var(--t1);font-size:14px;outline:none">
+          <input id="rent-weight" placeholder="體重 kg" type="text" inputmode="numeric" style="flex:1;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:11px 13px;color:var(--t1);font-size:14px;outline:none">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--t3);line-height:1.8;margin-top:10px;background:var(--card2);border-radius:10px;padding:10px 12px">
+        ⏰ 以上價格以一日為單位，未滿一日以一日計，隔夜歸還即增加一日。<br>
+        💰 如有遺失或損害，需恢復原狀或以全新品價格賠償，不同意者請勿租借。
+      </div>
+    </div>
+    <div class="modal-section">
+      <h4>費用總計</h4>
+      <div style="background:var(--card);border:1px solid rgba(201,168,76,.35);border-radius:14px;padding:14px 16px;display:flex;align-items:baseline;justify-content:space-between">
+        <span style="font-size:12px;color:var(--t2)" id="total-breakdown">團練 $${Number(s?.price)||0}</span>
+        <span style="font-size:20px;font-weight:900;color:var(--gold)">NT$ <span id="total-amount">${Number(s?.price)||0}</span></span>
+      </div>
     </div>
     <div class="modal-section">
       <h4>匯款資訊</h4>
       <div class="bank-box">
-        <div class="bb-label">請匯款至以下帳戶</div>
+        <div class="bb-label">請依上方總額匯款至以下帳戶</div>
         <div class="bb-bank">玉山銀行（808）</div>
         <div class="bb-num">0772 9760 15466</div>
       </div>
@@ -1030,15 +1084,92 @@ function enroll(sessionId) {
       <button class="btn btn-teal" id="confirm-enroll-btn" onclick="submitEnroll('${sessionId}')">確認報名</button>
       <button class="btn btn-outline" onclick="openDetail('${sessionId}')">返回</button>
     </div>`;
+  window._enrollBasePrice = Number(s?.price)||0;
+  window._finSize = '';
+}
+
+// ── 租借邏輯 ──────────────────────────────────────
+function rentChecked(key) { return !!document.querySelector(`.rent-cb[data-key="${key}"]`)?.checked; }
+
+function onRentChange() {
+  // 全套 與 單租長蛙/面鏡/防寒衣 互斥
+  const full = rentChecked('full');
+  ['fins','mask','suit'].forEach(k => {
+    const cb = document.querySelector(`.rent-cb[data-key="${k}"]`);
+    if (cb) { if (full) cb.checked = false; cb.disabled = full; cb.parentElement.style.opacity = full?'0.4':'1'; }
+  });
+  // 鉛塊數量列
+  const leadOpt = document.getElementById('rent-opt-lead');
+  if (leadOpt) leadOpt.style.display = rentChecked('lead') ? '' : 'none';
+  // 尺寸 / 身高體重欄位
+  const needSize = rentChecked('fins') || rentChecked('full');
+  const needBody = rentChecked('suit') || rentChecked('full');
+  document.getElementById('rent-size-row').style.display = needSize ? '' : 'none';
+  document.getElementById('rent-body-row').style.display = needBody ? '' : 'none';
+  updateRentTotal();
+}
+
+function selectFinSize(sz) {
+  window._finSize = sz;
+  document.querySelectorAll('.fin-size-btn').forEach(b => {
+    const on = b.dataset.size === sz;
+    b.style.borderColor = on ? 'var(--teal)' : 'var(--border)';
+    b.style.color = on ? 'var(--teal)' : 'var(--t1)';
+    b.style.background = on ? 'rgba(0,201,177,.08)' : 'var(--card2)';
+  });
+}
+
+function calcRental() {
+  let total = 0; const parts = [];
+  RENTAL_ITEMS.forEach(it => {
+    if (!rentChecked(it.key)) return;
+    if (it.perUnit) {
+      const qty = parseInt(document.getElementById('rent-qty-'+it.key)?.value) || 1;
+      total += it.price * qty;
+      parts.push(it.name + '×' + qty);
+    } else {
+      total += it.price;
+      parts.push(it.name);
+    }
+  });
+  return { total, parts };
+}
+
+function updateRentTotal() {
+  const { total } = calcRental();
+  const base = window._enrollBasePrice || 0;
+  const amountEl = document.getElementById('total-amount');
+  const bdEl = document.getElementById('total-breakdown');
+  if (amountEl) amountEl.textContent = base + total;
+  if (bdEl) bdEl.textContent = total > 0 ? `團練 $${base} + 租借 $${total}` : `團練 $${base}`;
 }
 
 async function submitEnroll(sessionId) {
   const transferCode = (document.getElementById('transfer-code-input')?.value || '').trim();
   if (!transferCode) { toast('請輸入匯款後五碼', 'error'); return; }
   if (!/^\d{5}$/.test(transferCode)) { toast('請輸入5位數字', 'error'); return; }
+
+  // 租借資料驗證與組裝
+  const { total: rentalTotal, parts } = calcRental();
+  const needSize = rentChecked('fins') || rentChecked('full');
+  const needBody = rentChecked('suit') || rentChecked('full');
+  if (needSize && !window._finSize) { toast('請選擇蛙鞋尺寸', 'error'); return; }
+  const rHeight = (document.getElementById('rent-height')?.value || '').trim();
+  const rWeight = (document.getElementById('rent-weight')?.value || '').trim();
+  if (needBody && (!rHeight || !rWeight)) { toast('租借防寒衣請填寫身高體重', 'error'); return; }
+
+  let rental = '';
+  if (rentalTotal > 0) {
+    rental = parts.join('、');
+    if (needSize) rental += `｜蛙鞋:${window._finSize}`;
+    if (needBody) rental += `｜${rHeight}cm/${rWeight}kg`;
+  }
+  const basePrice = window._enrollBasePrice || 0;
+  const totalAmount = basePrice + rentalTotal;
+
   const confirmBtn = document.getElementById('confirm-enroll-btn');
   if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '報名中…'; }
-  const res = await api({ action:'enrollSession', lineUid:profile.userId, sessionId, certLevel:selectedCert, transferCode });
+  const res = await api({ action:'enrollSession', lineUid:profile.userId, sessionId, certLevel:selectedCert, transferCode, rental, rentalTotal });
   if (res.ok) {
     const s = sessions.find(s=>s.id===sessionId);
     if (s) {
@@ -1054,6 +1185,7 @@ async function submitEnroll(sessionId) {
           <div class="sb-title">${esc(s?.title||'')}</div>
           <div class="sb-sub">${certName(selectedCert)}</div>
           <div class="sb-divider">
+            ${rental?`租借裝備：${esc(rental)}<br>應付總額：<span style="color:var(--gold);font-weight:800">NT$ ${totalAmount}</span>（團練 $${basePrice} + 租借 $${rentalTotal}）<br>`:''}
             匯款帳戶：玉山銀行（808）0772976015466<br>
             匯款後五碼：<span style="color:var(--teal);font-weight:800">${esc(transferCode)}</span>
           </div>

@@ -648,6 +648,7 @@ async function openEnrollModal(sessionId, title) {
         <div class="member-name">${esc(m.name)}</div>
         <div class="member-phone">${esc(m.phone||'')}</div>
         <div class="member-date">報名於 ${fmtDT(m.at)}</div>
+        ${m.rental?`<div style="font-size:11px;color:#C9A84C;margin-top:4px;line-height:1.6">🤿 租借：${esc(m.rental)}<br>租借費 $${m.rentalTotal||0}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
         ${m.certLevel?`<span class="cert-badge">${certName(m.certLevel)}</span>`:''}
