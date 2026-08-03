@@ -835,8 +835,6 @@ function renderMembersList() {
             <option value="教練" ${m.certLevel==='教練'?'selected':''}>教練</option>
           </select>
         </div>
-        <button class="btn btn-ghost btn-sm" style="width:100%" onclick="updateStudentStatsAction('${mid}')">儲存資料</button>
-
         <div style="border-top:1px solid #1A3852;margin-top:14px;padding-top:12px">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
             <div style="font-size:12px;font-weight:700;color:#00C9B1">AIDA2 技能檢核（成績）</div>
@@ -850,8 +848,9 @@ function renderMembersList() {
                 <input type="checkbox" class="skill-cb-${mid}" data-skill="${esc(item)}" ${m.skills && m.skills[item] ? 'checked' : ''} style="width:15px;height:15px;accent-color:#00C9B1;flex-shrink:0">${esc(item)}
               </label>`).join('')}
           `).join('')}
-          <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px" onclick="updateStudentSkillsAction('${mid}','${esc(m.lineUid||'')}',this)">儲存技能檢核</button>
         </div>
+
+        <button class="btn btn-primary" style="margin-top:14px;padding:13px;font-size:14px" onclick="saveStudentAll('${mid}','${esc(m.lineUid||'')}',this)">💾 儲存全部（潛水資料＋技能檢核）</button>
       </div>
     </div>`;
   }).join('');
@@ -870,49 +869,78 @@ async function approveStudentAction(memberId, approved) {
   else toast(res.error || '操作失敗', true);
 }
 
-async function updateStudentStatsAction(memberId) {
-  const depth     = document.getElementById('edit-depth-'  + memberId)?.value.trim();
-  const breathHold= document.getElementById('edit-breath-' + memberId)?.value.trim();
-  const certLevel = document.getElementById('edit-cert-'   + memberId)?.value;
-  const res = await api({ action: 'updateStudentStats', password: pwd, memberId, depth, breathHold, certLevel });
-  if (res.ok) { toast('資料已儲存'); loadMembers(); }
-  else toast(res.error || '儲存失敗', true);
-}
-
 function toggleAllSkills(memberId) {
   const boxes = document.querySelectorAll('.skill-cb-' + memberId);
   const allChecked = Array.from(boxes).every(b => b.checked);
   boxes.forEach(b => { b.checked = !allChecked; });
 }
 
-async function updateStudentSkillsAction(memberId, lineUid, btn) {
-  const boxes = document.querySelectorAll('.skill-cb-' + memberId);
+// 潛水資料 + 技能檢核一次存檔；兩支 API 併行送出，存完只更新這張卡片
+async function saveStudentAll(memberId, lineUid, btn) {
+  const depth      = document.getElementById('edit-depth-'  + memberId)?.value.trim();
+  const breathHold = document.getElementById('edit-breath-' + memberId)?.value.trim();
+  const certLevel  = document.getElementById('edit-cert-'   + memberId)?.value;
+
   const skills = {};
-  boxes.forEach(b => { skills[b.dataset.skill] = b.checked; });
+  document.querySelectorAll('.skill-cb-' + memberId)
+    .forEach(b => { skills[b.dataset.skill] = b.checked; });
 
+  const label = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '儲存中…'; }
-  const res = await api({ action: 'updateStudentSkills', password: pwd, memberId, lineUid, skills });
-  if (btn) { btn.disabled = false; btn.textContent = '儲存技能檢核'; }
 
-  if (res.ok) {
-    toast('技能檢核已儲存');
-    // 只更新本地資料與該學員的進度標籤，不整頁重載（保留捲動位置與展開狀態）
-    const mem = allMembers.find(x => String(x.id) === String(memberId));
-    if (mem) {
-      mem.skills = skills;
-      const done = Object.values(skills).filter(Boolean).length;
-      const pass = done >= A2_TOTAL;
-      const card = document.getElementById('mcard-' + memberId);
-      const chip = card && card.querySelectorAll('.cert-badge');
-      if (chip && chip.length) {
-        const el = chip[chip.length - 1];
-        el.textContent = `A2 ${done}/${A2_TOTAL}${pass ? ' 過課' : ''}`;
-        el.style.cssText = pass
-          ? 'background:rgba(0,201,177,.18);border-color:#00C9B1;color:#00C9B1'
-          : 'background:rgba(201,168,76,.12);border-color:rgba(201,168,76,.4);color:#C9A84C';
-      }
-    }
-  } else toast(res.error || '儲存失敗', true);
+  const [statsRes, skillRes] = await Promise.all([
+    api({ action: 'updateStudentStats',  password: pwd, memberId, depth, breathHold, certLevel }),
+    api({ action: 'updateStudentSkills', password: pwd, memberId, lineUid, skills }),
+  ]);
+
+  if (btn) { btn.disabled = false; btn.textContent = label; }
+
+  if (!statsRes.ok || !skillRes.ok) {
+    toast((statsRes.error || skillRes.error) || '儲存失敗', true);
+    return;
+  }
+  toast('✅ 已儲存潛水資料與技能檢核');
+
+  // 更新本地資料與這張卡片的顯示，不整頁重載（保留捲動位置與展開狀態）
+  const mem = allMembers.find(x => String(x.id) === String(memberId));
+  if (!mem) return;
+  mem.depth = depth || '';
+  mem.breathHold = breathHold || '';
+  mem.certLevel = certLevel || '';
+  mem.skills = skills;
+
+  const card = document.getElementById('mcard-' + memberId);
+  if (!card) return;
+
+  // 標籤列：證照 + A2 進度
+  const done = Object.values(skills).filter(Boolean).length;
+  const pass = done >= A2_TOTAL;
+  const badgeRow = card.querySelector('.member-card-header > div > div[style*="margin-top:4px"]');
+  if (badgeRow) {
+    const approval = mem.approvalStatus || 'pending';
+    const aCls = approval === 'approved' ? 'approval-approved' : approval === 'rejected' ? 'approval-rejected' : 'approval-pending';
+    const aTxt = approval === 'approved' ? '已審核' : approval === 'rejected' ? '未通過' : '待審核';
+    const chipStyle = pass
+      ? 'background:rgba(0,201,177,.18);border-color:#00C9B1;color:#00C9B1'
+      : 'background:rgba(201,168,76,.12);border-color:rgba(201,168,76,.4);color:#C9A84C';
+    badgeRow.innerHTML =
+      `<span class="approval-badge ${aCls}">${aTxt}</span>` +
+      (certLevel ? `<span class="cert-badge">${esc(certLevel)}</span>` : '') +
+      `<span class="cert-badge" style="${chipStyle}">A2 ${done}/${A2_TOTAL}${pass ? ' 過課' : ''}</span>`;
+  }
+
+  // 卡片上的深度／閉氣文字
+  const meta = card.querySelector('.member-card-meta');
+  if (meta) {
+    let html = '';
+    if (mem.displayName)    html += `<span>LINE：${esc(mem.displayName)}</span><br>`;
+    if (mem.coachName)      html += `<span>教練：${esc(mem.coachName)}</span><br>`;
+    if (mem.firstClassDate) html += `<span>初次上課：${esc(mem.firstClassDate)}</span><br>`;
+    if (mem.depth)          html += `<span>深度：${esc(mem.depth)}</span>  `;
+    if (mem.breathHold)     html += `<span>閉氣：${esc(mem.breathHold)}</span><br>`;
+    if (mem.lineId)         html += `<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">LINE ID：${esc(mem.lineId)} <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:10px" onclick="copyText('${esc(mem.lineId)}','LINE ID')">複製</button></span>`;
+    meta.innerHTML = html;
+  }
 }
 
 function copyText(text, label) {
