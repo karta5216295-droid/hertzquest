@@ -616,12 +616,17 @@ async function openEnrollModal(sessionId, title) {
   const res = await api({ action: 'getEnrollList', password: pwd, sessionId });
   if (!res.ok) { document.getElementById('modal-list').innerHTML = `<div style="color:#C04545">${res.error}</div>`; return; }
   const list = res.list;
-  document.getElementById('modal-count').textContent = `共 ${list.length} 位學員報名`;
+  const rentalCount = list.filter(m => m.rental).length;
+  const rentalSum = list.reduce((sum, m) => sum + (Number(m.rentalTotal) || 0), 0);
+  document.getElementById('modal-count').innerHTML = rentalCount
+    ? `共 ${list.length} 位學員報名 &emsp; <span style="color:#C9A84C">🤿 ${rentalCount} 位租借 · 租借費合計 $${rentalSum}</span>`
+    : `共 ${list.length} 位學員報名`;
 
   const counts = { '無證':0, 'A1':0, 'A2pool':0, 'A2':0 };
   list.forEach(m => { if (counts[m.certLevel] !== undefined) counts[m.certLevel]++; });
   const modalSession = allSessions.find(s => s.id === sessionId);
   const modalUncertMax = Number(modalSession?.uncertMax || DEFAULT_UNCERT_MAX);
+  const sessionPrice = Number(modalSession?.price) || 0;
   document.getElementById('modal-cert-bar').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;padding:12px;background:#102840;border-radius:12px">
       <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:${counts['無證']>=modalUncertMax?'#C04545':'#C9A84C'}">${counts['無證']}/${modalUncertMax}</div><div style="font-size:10px;color:#7FAFC5">無 照</div></div>
@@ -648,7 +653,7 @@ async function openEnrollModal(sessionId, title) {
         <div class="member-name">${esc(m.name)}</div>
         <div class="member-phone">${esc(m.phone||'')}</div>
         <div class="member-date">報名於 ${fmtDT(m.at)}</div>
-        ${m.rental?`<div style="font-size:11px;color:#C9A84C;margin-top:4px;line-height:1.6">🤿 租借：${esc(m.rental)}<br>租借費 $${m.rentalTotal||0}</div>`:''}
+        ${m.rental?`<div style="font-size:11px;color:#C9A84C;margin-top:5px;line-height:1.7;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.28);border-radius:8px;padding:6px 9px">🤿 ${esc(m.rental)}<br><span style="color:#7FAFC5">團練 $${sessionPrice} ＋ 租借 $${m.rentalTotal||0}　</span><span style="font-weight:800;color:#C9A84C">應收 $${sessionPrice + (Number(m.rentalTotal)||0)}</span></div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
         ${m.certLevel?`<span class="cert-badge">${certName(m.certLevel)}</span>`:''}
@@ -845,7 +850,7 @@ function renderMembersList() {
                 <input type="checkbox" class="skill-cb-${mid}" data-skill="${esc(item)}" ${m.skills && m.skills[item] ? 'checked' : ''} style="width:15px;height:15px;accent-color:#00C9B1;flex-shrink:0">${esc(item)}
               </label>`).join('')}
           `).join('')}
-          <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px" onclick="updateStudentSkillsAction('${mid}','${esc(m.lineUid||'')}')">儲存技能檢核</button>
+          <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px" onclick="updateStudentSkillsAction('${mid}','${esc(m.lineUid||'')}',this)">儲存技能檢核</button>
         </div>
       </div>
     </div>`;
@@ -880,13 +885,34 @@ function toggleAllSkills(memberId) {
   boxes.forEach(b => { b.checked = !allChecked; });
 }
 
-async function updateStudentSkillsAction(memberId, lineUid) {
+async function updateStudentSkillsAction(memberId, lineUid, btn) {
   const boxes = document.querySelectorAll('.skill-cb-' + memberId);
   const skills = {};
   boxes.forEach(b => { skills[b.dataset.skill] = b.checked; });
+
+  if (btn) { btn.disabled = true; btn.textContent = '儲存中…'; }
   const res = await api({ action: 'updateStudentSkills', password: pwd, memberId, lineUid, skills });
-  if (res.ok) { toast('技能檢核已儲存'); loadMembers(); }
-  else toast(res.error || '儲存失敗', true);
+  if (btn) { btn.disabled = false; btn.textContent = '儲存技能檢核'; }
+
+  if (res.ok) {
+    toast('技能檢核已儲存');
+    // 只更新本地資料與該學員的進度標籤，不整頁重載（保留捲動位置與展開狀態）
+    const mem = allMembers.find(x => String(x.id) === String(memberId));
+    if (mem) {
+      mem.skills = skills;
+      const done = Object.values(skills).filter(Boolean).length;
+      const pass = done >= A2_TOTAL;
+      const card = document.getElementById('mcard-' + memberId);
+      const chip = card && card.querySelectorAll('.cert-badge');
+      if (chip && chip.length) {
+        const el = chip[chip.length - 1];
+        el.textContent = `A2 ${done}/${A2_TOTAL}${pass ? ' 過課' : ''}`;
+        el.style.cssText = pass
+          ? 'background:rgba(0,201,177,.18);border-color:#00C9B1;color:#00C9B1'
+          : 'background:rgba(201,168,76,.12);border-color:rgba(201,168,76,.4);color:#C9A84C';
+      }
+    }
+  } else toast(res.error || '儲存失敗', true);
 }
 
 function copyText(text, label) {

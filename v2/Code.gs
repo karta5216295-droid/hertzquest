@@ -16,6 +16,9 @@ const C = {
   E: { ID:1,SID:2,UID:3,NAME:4,PHONE:5,CERT:6,AT:7,TRANSFER:8,PAYMENT:9 },
 };
 
+// AIDA2 過課技能清單（21 項，與前端一致）
+const A2_SKILL_LIST = ['放鬆課程','呼吸課程','靜態閉氣潛伴制度','靜態閉氣≥2分鐘','靜態閉氣救援','平潛潛伴制度','動態平潛姿態','動態平潛≥40M','動態平潛救援','攀繩下潛12~20M','安全繩使用','可控制轉身','平衡耳壓','躬身下潛','恆重下潛姿態','對繩下潛','恆重下潛12~20M','水面救援','5~10M水下救援','潛伴水面戒護','潛伴水下10M戒護'];
+
 // ── 路由 ──────────────────────────────────────────────────────
 function doGet(e) {
   const pg = (e.parameter.page || 'index');
@@ -23,13 +26,14 @@ function doGet(e) {
   return HtmlService.createHtmlOutputFromFile(file)
     .setTitle(pg === 'coach' ? 'HertzQuest 教練後台' : 'HertzQuest 團練')
     .addMetaTag('viewport','width=device-width,initial-scale=1,maximum-scale=1')
-    .addMetaTag('Content-Type', 'text/html; charset=utf-8')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function doPost(e) {
   try {
     const d = JSON.parse(e.postData.contents);
+    // LINE webhook 事件（圖文選單／關鍵字）→ events 陣列；App 的 API → 有 action
+    if (d.events) { handleLineWebhook(d.events); return res({ok:true}); }
     return res(dispatch(d));
   } catch(err) {
     return res({ok:false,error:err.message});
@@ -41,7 +45,7 @@ function dispatch(d) {
     initMember, getSessions, enrollSession, myEnrollments, cancelEnroll,
     coachLogin, allSessions, createSession, updateSession, deleteSession,
     getEnrollList, notifyStudents, confirmPayment, getMembers, deleteMember,
-    approveStudent, updateStudentStats,
+    approveStudent, updateStudentStats, getStudentSkills, updateStudentSkills,
     getAnnouncements, createAnnouncement, deleteAnnouncement,
     createTrip, getTrips, enrollTrip, cancelTripEnroll, myTripEnrollments,
     getTripEnrollList, updateTrip, deleteTrip,
@@ -73,7 +77,7 @@ function initMember({lineUid, displayName, pictureUrl, realName, phone, firstCla
         realName:     r[C.M.NAME-1],
         phone:        r[C.M.PHONE-1],
         displayName:  displayName||r[C.M.DISPLAY-1],
-        firstClassDate: String(r[C.M.FIRST_CLASS-1]||''),
+        firstClassDate: formatDate(r[C.M.FIRST_CLASS-1]),
         coachName:    r[C.M.COACH_NAME-1]||'',
         lineId:       r[C.M.LINE_ID-1]||'',
         depth:        String(r[C.M.DEPTH-1]||''),
@@ -99,9 +103,12 @@ function getSessions({lineUid}) {
 
   const enrolled = new Set();
   const uncertCnt = {};
+  const cnt = {};
   eRows.slice(1).forEach(r => {
-    if (r[C.E.UID-1]===lineUid) enrolled.add(r[C.E.SID-1]);
     const sid = r[C.E.SID-1];
+    if (!sid || !r[C.E.UID-1]) return;
+    if (r[C.E.UID-1]===lineUid) enrolled.add(sid);
+    cnt[sid] = (cnt[sid]||0)+1;
     if (r[C.E.CERT-1]==='無證') uncertCnt[sid] = (uncertCnt[sid]||0)+1;
   });
 
@@ -109,16 +116,21 @@ function getSessions({lineUid}) {
     .filter(r => String(r[C.S.ACTIVE-1]).toLowerCase()==='true')
     .filter(r => { try { return new Date(r[C.S.DATE-1]) >= today; } catch(e){ return false; } })
     .sort((a,b) => new Date(a[C.S.DATE-1])-new Date(b[C.S.DATE-1]))
-    .map(r => ({...toSession(r), enrolled: enrolled.has(r[C.S.ID-1]), uncertCount: uncertCnt[r[C.S.ID-1]]||0}));
+    .map(r => ({...toSession(r), enrolled: enrolled.has(r[C.S.ID-1]), enrollCount: cnt[r[C.S.ID-1]]||0, uncertCount: uncertCnt[r[C.S.ID-1]]||0}));
 
   return {ok:true, sessions};
 }
 
-function enrollSession({lineUid, sessionId, certLevel, transferCode}) {
+function enrollSession({lineUid, sessionId, certLevel, transferCode, rental, rentalTotal}) {
   // 確認學員已登記
   const mRows = sh_('Members').getDataRange().getValues();
   const member = mRows.slice(1).find(r => r[C.M.UID-1]===lineUid);
   if (!member) return {ok:false, error:'請先填寫真實姓名和電話完成學員登記'};
+
+  // 確認已審核通過
+  if ((member[C.M.APPROVAL-1]||'pending') !== 'approved') {
+    return {ok:false, error:'您的帳號尚未審核通過，請聯絡教練後再報名'};
+  }
 
   // 確認未重複報名
   const eSheet = sh_('Enrollments');
@@ -151,20 +163,36 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode}) {
   }
   if (Number(sData[C.S.LEFT-1]) <= 0) return {ok:false,error:'名額已滿'};
 
-  // 寫入報名
+  // 寫入報名（第10欄=租借明細、第11欄=租借金額）
   const id='E'+Date.now();
-  eSheet.appendRow([id,sessionId,lineUid,member[C.M.NAME-1],member[C.M.PHONE-1],effectiveCertLevel||'',new Date(),transferCode||'','pending']);
+  const rentTotal = Number(rentalTotal) || 0;
+  eSheet.appendRow([id,sessionId,lineUid,member[C.M.NAME-1],member[C.M.PHONE-1],effectiveCertLevel||'',new Date(),transferCode||'','pending',rental||'',rentTotal]);
   sSheet.getRange(sRowIdx, C.S.LEFT).setValue(Number(sData[C.S.LEFT-1])-1);
 
-  // LINE 確認通知
-  const dateStr = String(sData[C.S.DATE-1]).slice(0,10);
+  // LINE 確認通知 — 日期/時間需格式化（Sheets 會存成 Date 物件）
+  const dateStr = formatDate(sData[C.S.DATE-1]);
+  const rawTime = sData[C.S.TIME-1];
+  let timeStr = '';
+  if (rawTime instanceof Date) {
+    timeStr = String(rawTime.getUTCHours()).padStart(2,'0') + ':' + String(rawTime.getUTCMinutes()).padStart(2,'0');
+  } else if (rawTime) {
+    timeStr = String(rawTime);
+  }
+  const basePrice = Number(sData[C.S.PRICE-1]) || 0;
+  let feeMsg = '';
+  if (rentTotal > 0) {
+    feeMsg = `\n🤿 租借裝備：${rental}\n💰 應付總額：NT$ ${basePrice + rentTotal}（團練 $${basePrice} + 租借 $${rentTotal}）\n⏰ 租借以一日計，隔夜歸還加一日；遺失或損害需照價賠償。\n`;
+  } else if (basePrice > 0) {
+    feeMsg = `\n💰 費用：NT$ ${basePrice}\n`;
+  }
   sendLine(lineUid,
     `✅ 報名成功！\n\n` +
     `📌 ${sData[C.S.TITLE-1]}\n` +
-    `📅 ${dateStr} ${sData[C.S.TIME-1]||''}\n` +
+    `📅 ${dateStr}${timeStr?' '+timeStr:''}\n` +
     `📍 地點：${sData[C.S.LOC-1]||''}\n` +
-    `🗺 集合點：${sData[C.S.MEET-1]||''}\n\n` +
-    `教練 ${sData[C.S.COACH-1]} 期待您的到來！`
+    `🗺 集合點：${sData[C.S.MEET-1]||''}\n` +
+    feeMsg +
+    `\n教練 ${sData[C.S.COACH-1]} 期待您的到來！`
   );
 
   return {ok:true, message:'報名成功！收到 LINE 確認通知了嗎？'};
@@ -278,6 +306,10 @@ function deleteSession({password, sessionId}) {
 function getMembers({password}) {
   if (!auth(password)) return noAuth();
   const rows = sh_('Members').getDataRange().getValues();
+  // 讀取技能檢核（A2 成績），用 memberId 對應
+  const skRows = skillsSheet_().getDataRange().getValues();
+  const skMap = {};
+  for (let i = 1; i < skRows.length; i++) { skMap[String(skRows[i][0])] = parseSkills_(skRows[i][2]); }
   const members = rows.slice(1).filter(r=>r[0]).map(r=>({
     id:           r[C.M.ID-1],
     lineUid:      r[C.M.UID-1],
@@ -286,15 +318,59 @@ function getMembers({password}) {
     displayName:  r[C.M.DISPLAY-1],
     status:       r[C.M.STATUS-1],
     joinedAt:     String(r[C.M.AT-1]).slice(0,10),
-    firstClassDate: String(r[C.M.FIRST_CLASS-1]||''),
+    firstClassDate: formatDate(r[C.M.FIRST_CLASS-1]),
     coachName:    r[C.M.COACH_NAME-1]||'',
     lineId:       r[C.M.LINE_ID-1]||'',
     depth:        String(r[C.M.DEPTH-1]||''),
     breathHold:   formatBreath(r[C.M.BREATH-1]),
     certLevel:    r[C.M.CERT-1]||'',
     approvalStatus: r[C.M.APPROVAL-1]||'pending',
+    skills:       skMap[String(r[C.M.ID-1])] || {},
   }));
   return {ok:true, members};
+}
+
+// ── A2 技能檢核（成績，與帳號審核獨立）────────────────────────────
+function skillsSheet_() {
+  const ss = ss_();
+  let sh = ss.getSheetByName('Skills');
+  if (!sh) { sh = ss.insertSheet('Skills'); sh.appendRow(['memberId','lineUid','skills','updatedAt']); }
+  return sh;
+}
+
+function parseSkills_(v) {
+  try { return v ? JSON.parse(v) : {}; } catch(e) { return {}; }
+}
+
+// 學員端：查自己的技能進度
+function getStudentSkills({lineUid}) {
+  if (!lineUid) return {ok:false, error:'參數不完整'};
+  const rows = skillsSheet_().getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][1]) === String(lineUid)) {
+      return {ok:true, skills: parseSkills_(rows[i][2])};
+    }
+  }
+  return {ok:true, skills: {}};
+}
+
+// 教練端：儲存學員技能檢核
+function updateStudentSkills({password, memberId, lineUid, skills}) {
+  if (!auth(password)) return noAuth();
+  if (!memberId) return {ok:false, error:'參數不完整'};
+  const sh = skillsSheet_();
+  const rows = sh.getDataRange().getValues();
+  const json = JSON.stringify(skills || {});
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(memberId)) {
+      if (lineUid) sh.getRange(i+1, 2).setValue(lineUid);
+      sh.getRange(i+1, 3).setValue(json);
+      sh.getRange(i+1, 4).setValue(new Date().toISOString());
+      return {ok:true};
+    }
+  }
+  sh.appendRow([memberId, lineUid || '', json, new Date().toISOString()]);
+  return {ok:true};
 }
 
 function approveStudent({password, memberId, approved}) {
@@ -337,8 +413,17 @@ function deleteMember({password, memberId}) {
 
 function getEnrollList({password, sessionId}) {
   if (!auth(password)) return noAuth();
-  const rows = sh_('Enrollments').getDataRange().getValues();
-  // 支援新舊兩種欄位格式：有 STATUS 欄或無
+  const sheet = sh_('Enrollments');
+  const rows = sheet.getDataRange().getValues();
+  if (!rows.length) return {ok:true, list:[]};
+
+  // 租借欄位：優先用標題名對應，找不到才退回固定位置（第10、11欄）
+  const head = rows[0].map(function(h){ return String(h||'').trim(); });
+  let rentalIdx = head.indexOf('租借明細');
+  let rentalTotalIdx = head.indexOf('租借金額');
+  if (rentalIdx < 0) rentalIdx = 9;
+  if (rentalTotalIdx < 0) rentalTotalIdx = 10;
+
   const list = [];
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
@@ -353,10 +438,24 @@ function getEnrollList({password, sessionId}) {
         certLevel:    r[C.E.CERT-1]||'',
         transferCode: r[C.E.TRANSFER-1]||'',
         paymentStatus:r[C.E.PAYMENT-1]||'pending',
+        rental:       String(r[rentalIdx]||''),
+        rentalTotal:  Number(r[rentalTotalIdx])||0,
       });
     }
   }
   return {ok:true, list};
+}
+
+// 修補舊 Enrollments 工作表：補上「租借明細／租借金額」兩個標題
+// （在 GAS 編輯器直接執行這個函式一次即可）
+function fixEnrollmentHeaders() {
+  const sheet = sh_('Enrollments');
+  const lastCol = sheet.getLastColumn();
+  const head = sheet.getRange(1, 1, 1, Math.max(lastCol, 11)).getValues()[0]
+                    .map(function(h){ return String(h||'').trim(); });
+  if (head.indexOf('租借明細') < 0) sheet.getRange(1, 10).setValue('租借明細');
+  if (head.indexOf('租借金額') < 0) sheet.getRange(1, 11).setValue('租借金額');
+  return '✅ Enrollments 標題已補上租借欄位';
 }
 
 function confirmPayment({password, enrollId, lineUid, sessionId, rowIndex}) {
@@ -405,7 +504,17 @@ function notifyStudents({password, sessionId, message}) {
 function auth(p) { return p===CFG.COACH_PWD; }
 function noAuth() { return {ok:false,error:'未授權'}; }
 function checkPassword(p) { return p===CFG.COACH_PWD ? {ok:true} : {ok:false,error:'未授權'}; }
-function sh_(name) { return SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName(name); }
+// 試算表與工作表快取 — 每次 openById 都是昂貴的 API 呼叫，
+// 同一次請求內重複開啟是卡頓主因，這裡快取起來重複使用
+var _ssCache = null, _shCache = {};
+function ss_() {
+  if (!_ssCache) _ssCache = SpreadsheetApp.openById(CFG.SHEET_ID);
+  return _ssCache;
+}
+function sh_(name) {
+  if (!_shCache[name]) _shCache[name] = ss_().getSheetByName(name);
+  return _shCache[name];
+}
 
 function toSession(r) {
   // 時間欄位可能被 Sheets 解析為 Date 物件，用 UTC 方法避免時區偏移，並轉成 AM/PM
@@ -447,7 +556,7 @@ function toMember(r) {
   return {
     id:r[C.M.ID-1], lineUid:r[C.M.UID-1], realName:r[C.M.NAME-1],
     phone:r[C.M.PHONE-1], displayName:r[C.M.DISPLAY-1],
-    firstClassDate: String(r[C.M.FIRST_CLASS-1]||''),
+    firstClassDate: formatDate(r[C.M.FIRST_CLASS-1]),
     coachName: r[C.M.COACH_NAME-1]||'',
     lineId: r[C.M.LINE_ID-1]||'',
     depth: String(r[C.M.DEPTH-1]||''),
@@ -469,10 +578,161 @@ function sendLine(toUid, text) {
   } catch(e) { console.error('LINE error:',e); }
 }
 
+// ── LINE Webhook（圖文選單回文字）──────────────────────────────
+function handleLineWebhook(events) {
+  events.forEach(function(ev) {
+    try {
+      var replyToken = ev.replyToken;
+      var uid = ev.source && ev.source.userId;
+      var text = '';
+      if (ev.type === 'message' && ev.message && ev.message.type === 'text') {
+        text = String(ev.message.text || '').trim();
+      } else if (ev.type === 'postback' && ev.postback) {
+        text = String(ev.postback.data || '').trim();
+      } else {
+        return;
+      }
+      if (!replyToken) return;
+
+      if (text === '我的報名' || text === 'myenroll') {
+        replyLine(replyToken, buildMyEnrollText(uid));
+      } else if (text === '最新公告' || text === 'news') {
+        replyLine(replyToken, buildAnnouncementText());
+      } else if (text === '我的資料' || text === '課程進度' || text === '我的進度') {
+        replyLine(replyToken, buildSkillsText(uid));
+      }
+    } catch(err) {}
+  });
+}
+
+function replyLine(replyToken, text) {
+  if (!CFG.LINE_TOKEN || CFG.LINE_TOKEN.includes('REPLACE')) return;
+  try {
+    UrlFetchApp.fetch('https://api.line.me/v2/bot/message/reply', {
+      method: 'post',
+      headers: {'Authorization':'Bearer '+CFG.LINE_TOKEN, 'Content-Type':'application/json'},
+      payload: JSON.stringify({ replyToken: replyToken, messages: [{type:'text', text: text}] }),
+      muteHttpExceptions: true,
+    });
+  } catch(e) { console.error('LINE reply error:', e); }
+}
+
+function buildMyEnrollText(uid) {
+  if (!uid) return '無法辨識您的身分，請從 LINE 內開啟 🙏';
+  var ss = ss_();
+
+  // 團練報名
+  var sRows = ss.getSheetByName('Sessions').getDataRange().getValues();
+  var sMap = {};
+  for (var i = 1; i < sRows.length; i++) { sMap[sRows[i][C.S.ID-1]] = sRows[i]; }
+  var eRows = ss.getSheetByName('Enrollments').getDataRange().getValues();
+  var sessionItems = [];
+  for (var j = 1; j < eRows.length; j++) {
+    if (String(eRows[j][C.E.UID-1]) === String(uid)) {
+      var s = sMap[eRows[j][C.E.SID-1]];
+      if (!s) continue;
+      var d = formatDate(s[C.S.DATE-1]);
+      var rawT = s[C.S.TIME-1];
+      var t = '';
+      if (rawT instanceof Date) t = String(rawT.getUTCHours()).padStart(2,'0') + ':' + String(rawT.getUTCMinutes()).padStart(2,'0');
+      else if (rawT) t = String(rawT);
+      var pay = eRows[j][C.E.PAYMENT-1] === 'confirmed' ? '✅ 已收款' : '⏳ 待收款';
+      sessionItems.push('・' + s[C.S.TITLE-1] + ' ' + d + (t ? ' ' + t : '') + '　' + pay);
+    }
+  }
+
+  // 潛水旅行報名
+  var tripItems = [];
+  var tSheet = ss.getSheetByName('Trips');
+  var teSheet = ss.getSheetByName('TripEnrollments');
+  if (tSheet && teSheet) {
+    var tRows = tSheet.getDataRange().getValues();
+    var tHead = tRows[0];
+    var idIdx = tHead.indexOf('id'), titleIdx = tHead.indexOf('title');
+    var tMap = {};
+    for (var k = 1; k < tRows.length; k++) { tMap[String(tRows[k][idIdx])] = tRows[k][titleIdx]; }
+    var teRows = teSheet.getDataRange().getValues().slice(1);
+    teRows.forEach(function(r) {
+      if (String(r[2]) === String(uid)) {
+        var title = tMap[String(r[1])] || '旅行';
+        var plan = r[5] === 'couple' ? '雙人團報' : '單人方案';
+        tripItems.push('・' + title + '（' + plan + '）');
+      }
+    });
+  }
+
+  if (!sessionItems.length && !tripItems.length) {
+    return '您目前沒有任何報名紀錄 🙂\n點下方選單「團練報名」看看吧！';
+  }
+  var out = '📋 您的報名狀況';
+  if (sessionItems.length) out += '\n\n【團練】\n' + sessionItems.join('\n');
+  if (tripItems.length) out += '\n\n【潛水旅行】\n' + tripItems.join('\n');
+  return out;
+}
+
+function buildAnnouncementText() {
+  var r = getAnnouncements();
+  if (!r.ok || !r.announcements || !r.announcements.length) {
+    return '📢 目前沒有最新公告 🙂';
+  }
+  var out = '📢 最新公告';
+  r.announcements.forEach(function(a) { out += '\n\n・' + a.text; });
+  return out;
+}
+
+function buildSkillsText(uid) {
+  if (!uid) return '無法辨識您的身分，請從 LINE 內開啟 🙏';
+
+  // 讀學員證照等級／深度／閉氣（教練在後台設定）
+  var cert = '', depth = '', breath = '';
+  var mRows = sh_('Members').getDataRange().getValues();
+  for (var m = 1; m < mRows.length; m++) {
+    if (String(mRows[m][C.M.UID-1]) === String(uid)) {
+      cert   = String(mRows[m][C.M.CERT-1] || '');
+      depth  = String(mRows[m][C.M.DEPTH-1] || '');
+      breath = formatBreath(mRows[m][C.M.BREATH-1]);
+      break;
+    }
+  }
+
+  // A3 以上：不顯示 A2 檢核，只顯示證照 + 深度 + 閉氣
+  var ADVANCED = ['AIDA3','AIDA4','教練'];
+  if (ADVANCED.indexOf(cert) >= 0) {
+    var p = '👤 您的潛水資料\n證照等級：' + cert;
+    if (depth)  p += '\n目前深度：' + depth;
+    if (breath) p += '\n閉氣時間：' + breath;
+    if (!depth && !breath) p += '\n\n（深度與閉氣資料教練尚未更新）';
+    return p;
+  }
+
+  // A2（含無照／AIDA1／AIDA2）：顯示 A2 課程進度
+  var skills = {};
+  var rows = skillsSheet_().getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][1]) === String(uid)) { skills = parseSkills_(rows[i][2]); break; }
+  }
+  var passed = [], todo = [];
+  A2_SKILL_LIST.forEach(function(item) { (skills[item] ? passed : todo).push(item); });
+  var total = A2_SKILL_LIST.length;
+
+  var stats = '';
+  if (depth)  stats += '\n目前深度：' + depth;
+  if (breath) stats += '\n閉氣時間：' + breath;
+
+  if (passed.length === total) {
+    return '🎉 您的課程已通過！\n目前證照等級：AIDA2' + stats + '\n\n所有 ' + total + ' 項技能皆已完成，恭喜你 👏';
+  }
+  var out = '📊 您的 AIDA2 課程進度（' + passed.length + '/' + total + '）' + stats;
+  if (passed.length) out += '\n\n✅ 已通過\n' + passed.map(function(x){ return '・' + x; }).join('\n');
+  out += '\n\n⬜ 未通過\n' + todo.map(function(x){ return '・' + x; }).join('\n');
+  out += '\n\n還差 ' + todo.length + ' 項就完成囉，加油 💪';
+  return out;
+}
+
 // ── 公告 API ─────────────────────────────────────────────────
 function getAnnouncements() {
   try {
-    const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    const ss = ss_();
     let sheet;
     try { sheet = ss.getSheetByName('Announcements'); } catch(e) { sheet = null; }
     if (!sheet) {
@@ -501,7 +761,7 @@ function createAnnouncement({password, text, active}) {
   if (!auth(password)) return noAuth();
   if (!text) return {ok:false, error:'公告內容不可為空'};
   try {
-    const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    const ss = ss_();
     let sheet = ss.getSheetByName('Announcements');
     if (!sheet) {
       sheet = ss.insertSheet('Announcements');
@@ -518,7 +778,7 @@ function createAnnouncement({password, text, active}) {
 function deleteAnnouncement({password, announcementId}) {
   if (!auth(password)) return noAuth();
   try {
-    const sheet = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('Announcements');
+    const sheet = sh_('Announcements');
     if (!sheet) return {ok:false, error:'找不到公告表'};
     const data = sheet.getDataRange().getValues();
     const idCol = data[0].indexOf('id');
@@ -536,7 +796,7 @@ function deleteAnnouncement({password, announcementId}) {
 
 // 第一次執行：初始化 Sheets
 function setupSheets() {
-  const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+  const ss = ss_();
   const init = (name,hdrs,bg) => {
     let sh=ss.getSheetByName(name)||ss.insertSheet(name);
     if(sh.getLastRow()===0){
@@ -547,7 +807,7 @@ function setupSheets() {
   };
   init('Members',     ['ID','LINE_UID','真實姓名','電話','LINE暱稱','頭像','狀態','加入時間','初次上課日','教練','LINE_ID','深度','閉氣','證照','審核狀態'],'#1565C0');
   init('Sessions',    ['ID','標題','日期','時間','地點','集合地點','說明','教練','名額上限','剩餘名額','費用','開放報名','建立時間','無照名額'],'#2E7D32');
-  init('Enrollments', ['ID','活動ID','LINE_UID','姓名','電話','證照等級','報名時間','轉帳末5碼','收款狀態'],'#6A1B9A');
+  init('Enrollments', ['ID','活動ID','LINE_UID','姓名','電話','證照等級','報名時間','轉帳末5碼','收款狀態','租借明細','租借金額'],'#6A1B9A');
   init('Announcements',['id','text','active'],'#4A148C');
   initTripSheets();
   return '✅ Sheets 初始化完成！';
@@ -600,8 +860,11 @@ function formatDate(val) {
   return String(val);
 }
 
+var _tripSheetsReady = false;
 function initTripSheets() {
-  var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+  if (_tripSheetsReady) return;   // 同一次請求只檢查一次，避免重複讀寫拖慢速度
+  _tripSheetsReady = true;
+  var ss = ss_();
   if (!ss.getSheetByName('Trips')) {
     var sh = ss.insertSheet('Trips');
     sh.appendRow(['id','country','title','itinerary','inclusions','priceSingle','priceCouple','startDate','endDate','maxSpots','minSpots','active','notes','createdAt']);
@@ -624,11 +887,28 @@ function createTrip(data) {
     var p = checkPassword(data.password);
     if (!p.ok) return p;
     initTripSheets();
-    var sh = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('Trips');
+    var sh = sh_('Trips');
+    // 動態讀取 header，避免欄位順序不符導致值寫錯欄位
+    var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
     var id = 'trip_' + Date.now();
-    sh.appendRow([id, data.country||'', data.title||'', data.itinerary||'', data.inclusions||'',
-      data.priceSingle||0, data.priceCouple||0, data.startDate||'', data.endDate||'',
-      data.maxSpots||20, data.minSpots||0, true, data.notes||'', new Date().toISOString()]);
+    var valMap = {
+      id: id,
+      country: data.country||'',
+      title: data.title||'',
+      itinerary: data.itinerary||'',
+      inclusions: data.inclusions||'',
+      priceSingle: data.priceSingle||0,
+      priceCouple: data.priceCouple||0,
+      startDate: data.startDate||'',
+      endDate: data.endDate||'',
+      maxSpots: data.maxSpots||20,
+      minSpots: data.minSpots||0,
+      active: true,
+      notes: data.notes||'',
+      createdAt: new Date().toISOString(),
+    };
+    var row = headers.map(function(h){ return valMap.hasOwnProperty(h) ? valMap[h] : ''; });
+    sh.appendRow(row);
     return { ok: true, message: '旅行已建立', id: id };
   } catch(e) { return { ok: false, error: e.message }; }
 }
@@ -636,7 +916,7 @@ function createTrip(data) {
 function getTrips(data) {
   try {
     initTripSheets();
-    var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    var ss = ss_();
     var sh = ss.getSheetByName('Trips');
     var rows = sh.getDataRange().getValues();
     if (rows.length <= 1) return { ok: true, trips: [] };
@@ -674,7 +954,7 @@ function enrollTrip(data) {
   try {
     var lineUid = data.lineUid, tripId = data.tripId, plan = data.plan;
     if (!lineUid || !tripId || !plan) return { ok: false, error: '參數不完整' };
-    var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    var ss = ss_();
     var memberSh = ss.getSheetByName('Members');
     if (!memberSh) return { ok: false, error: '找不到學員資料表' };
     var memberRows = memberSh.getDataRange().getValues();
@@ -683,6 +963,12 @@ function enrollTrip(data) {
       if (String(memberRows[i][C.M.UID-1]) === String(lineUid)) { memberRow = memberRows[i]; break; }
     }
     if (!memberRow) return { ok: false, error: '請先完成學員登記' };
+
+    // 確認已審核通過
+    if ((String(memberRow[C.M.APPROVAL-1])||'pending') !== 'approved') {
+      return { ok: false, error: '您的帳號尚未審核通過，請聯絡教練後再報名' };
+    }
+
     initTripSheets();
     var enrollSh = ss.getSheetByName('TripEnrollments');
     var enrollRows = enrollSh.getDataRange().getValues().slice(1).filter(function(r){ return r[0]; });
@@ -737,7 +1023,7 @@ function cancelTripEnroll(data) {
     var lineUid = data.lineUid, tripId = data.tripId;
     if (!lineUid || !tripId) return { ok: false, error: '參數不完整' };
     initTripSheets();
-    var sh = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('TripEnrollments');
+    var sh = sh_('TripEnrollments');
     var rows = sh.getDataRange().getValues();
     for (var i = rows.length - 1; i >= 1; i--) {
       if (String(rows[i][1])===String(tripId) && String(rows[i][2])===String(lineUid)) {
@@ -754,7 +1040,7 @@ function myTripEnrollments(data) {
     var lineUid = data.lineUid;
     if (!lineUid) return { ok: false, error: '參數不完整' };
     initTripSheets();
-    var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    var ss = ss_();
     var enrollRows = ss.getSheetByName('TripEnrollments').getDataRange().getValues()
       .slice(1).filter(function(r){ return r[0] && String(r[2])===String(lineUid); });
     if (!enrollRows.length) return { ok: true, enrollments: [] };
@@ -782,7 +1068,7 @@ function getTripEnrollList(data) {
     var tripId = data.tripId;
     if (!tripId) return { ok: false, error: '參數不完整' };
     initTripSheets();
-    var rows = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('TripEnrollments')
+    var rows = sh_('TripEnrollments')
       .getDataRange().getValues().slice(1)
       .filter(function(r){ return r[0] && String(r[1])===String(tripId); });
     var list = rows.map(function(r) {
@@ -797,7 +1083,7 @@ function updateTrip(data) {
     var p = checkPassword(data.password);
     if (!p.ok) return p;
     initTripSheets();
-    var sh = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName('Trips');
+    var sh = sh_('Trips');
     var rows = sh.getDataRange().getValues();
     var headers = rows[0];
     for (var i = 1; i < rows.length; i++) {
@@ -824,7 +1110,7 @@ function deleteTrip(data) {
     var tripId = data.tripId;
     if (!tripId) return { ok: false, error: '參數不完整' };
     initTripSheets();
-    var ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    var ss = ss_();
     var sh = ss.getSheetByName('Trips');
     var rows = sh.getDataRange().getValues();
     var found = false;
