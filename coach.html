@@ -357,6 +357,7 @@ let pwd = '';
 let allSessions = [];
 let allTrips = [];
 let allMembers = [];
+let allAnnouncements = [];
 let currentSessionId = '';
 let currentTripId = '';
 
@@ -379,8 +380,9 @@ async function login() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-screen').style.display  = 'block';
     // 登入回應已帶活動列表就直接用，省一次 GAS 往返；舊版後端沒帶才再抓一次
-    if (res.sessions) { allSessions = res.sessions; renderSessions(); }
+    if (res.sessions) { allSessions = res.sessions; fetchedAt.sessions = Date.now(); renderSessions(); }
     else loadSessions();
+    prefetchAll();
   } else {
     document.getElementById('login-err').textContent = res.error || '密碼錯誤';
     document.getElementById('login-err').style.display = 'block';
@@ -388,11 +390,49 @@ async function login() {
   }
 }
 
+// 登入後趁教練在看活動列表時，背景把其他分頁的資料先抓回來，
+// 之後點任何分頁都是即時顯示。依序送出避免一次塞爆 GAS 佇列。
+async function prefetchAll() {
+  await loadMembers();
+  await loadTrips();
+  await loadAnnouncements();
+}
+
 function logout() {
   pwd = '';
+  allSessions = []; allTrips = []; allMembers = []; allAnnouncements = [];
+  Object.keys(fetchedAt).forEach(k => fetchedAt[k] = 0);
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('main-screen').style.display  = 'none';
   document.getElementById('pwd-input').value = '';
+}
+
+// 每支 GAS API 約需 2 秒，且連續呼叫會被排隊。
+// 策略：有舊資料就先秒畫出來，同時在背景重新抓一次，回來再更新畫面。
+// 所以畫面 0 秒出現、資料仍然每次都刷新，不會看到過期內容。
+const fetchedAt = { sessions:0, trips:0, members:0, ann:0 };
+const inflight  = {};   // 同一份資料同時只發一個請求，避免連點造成排隊
+
+// fn 必須回傳 Promise；3 秒內剛抓過就略過（純防連點，非快取過期）
+function revalidate(key, fn) {
+  if (inflight[key]) return inflight[key];
+  if (Date.now() - fetchedAt[key] < 3000) return Promise.resolve();
+  const p = Promise.resolve(fn()).finally(() => { delete inflight[key]; });
+  inflight[key] = p;
+  return p;
+}
+
+// 顯示右上角的背景更新提示
+function setSyncing(on) {
+  let el = document.getElementById('sync-tip');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sync-tip';
+    el.style.cssText = 'position:fixed;top:60px;right:14px;z-index:500;font-size:11px;color:#7FAFC5;background:rgba(12,30,48,.92);border:1px solid #1A3852;border-radius:20px;padding:5px 12px;opacity:0;transition:opacity .2s;pointer-events:none';
+    el.textContent = '更新中…';
+    document.body.appendChild(el);
+  }
+  el.style.opacity = on ? '1' : '0';
 }
 
 function switchTab(id) {
@@ -407,13 +447,25 @@ function switchTab(id) {
 }
 
 // ── 活動列表 ──────────────────────────────────────
-async function loadSessions() {
+async function loadSessions(force) {
   const el = document.getElementById('sessions-list');
-  el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
-  const res = await api({ action: 'allSessions', password: pwd });
-  if (!res.ok) { el.innerHTML = `<div class="empty-state">${res.error}</div>`; return; }
-  allSessions = res.sessions;
-  renderSessions();
+  const hasData = allSessions.length > 0;
+  if (hasData) renderSessions();   // 先秒畫出來，不讓畫面空白
+  else el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
+  if (force) { fetchedAt.sessions = 0; delete inflight.sessions; }
+
+  if (hasData) setSyncing(true);
+  await revalidate('sessions', async () => {
+    const res = await api({ action: 'allSessions', password: pwd });
+    if (res.ok) {
+      allSessions = res.sessions;
+      fetchedAt.sessions = Date.now();
+      renderSessions();
+    } else if (!hasData) {
+      el.innerHTML = `<div class="empty-state">${res.error}</div>`;
+    }
+  });
+  setSyncing(false);
 }
 
 function renderSessions() {
@@ -482,7 +534,7 @@ function renderSessions() {
 
 async function toggleActive(id, current) {
   const res = await api({ action: 'updateSession', password: pwd, sessionId: id, active: !current });
-  if (res.ok) { toast('已更新'); loadSessions(); }
+  if (res.ok) { toast('已更新'); loadSessions(true); }
   else toast(res.error, true);
 }
 
@@ -522,18 +574,31 @@ async function createSession() {
     document.getElementById('f-uncert-max').value = '4';
     document.getElementById('f-no-cert').checked = false;
     toggleCertFields();
+    fetchedAt.sessions = 0; delete inflight.sessions;
     switchTab('sessions');
   } else toast(res.error || '建立失敗', true);
 }
 
 // ── 潛水旅行 ──────────────────────────────────────
-async function loadTrips() {
+async function loadTrips(force) {
   const el = document.getElementById('trips-list');
-  el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
-  const res = await api({ action: 'getTrips', password: pwd });
-  if (!res.ok) { el.innerHTML = `<div class="empty-state">${res.error||'載入失敗'}</div>`; return; }
-  allTrips = res.trips || [];
-  renderTrips();
+  const hasData = allTrips.length > 0;
+  if (hasData) renderTrips();
+  else el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
+  if (force) { fetchedAt.trips = 0; delete inflight.trips; }
+
+  if (hasData) setSyncing(true);
+  await revalidate('trips', async () => {
+    const res = await api({ action: 'getTrips', password: pwd });
+    if (res.ok) {
+      allTrips = res.trips || [];
+      fetchedAt.trips = Date.now();
+      renderTrips();
+    } else if (!hasData) {
+      el.innerHTML = `<div class="empty-state">${res.error||'載入失敗'}</div>`;
+    }
+  });
+  setSyncing(false);
 }
 
 function renderTrips() {
@@ -574,7 +639,7 @@ function renderTrips() {
 
 async function toggleTripActive(id, current) {
   const res = await api({ action: 'updateTrip', password: pwd, tripId: id, active: !current });
-  if (res.ok) { toast('已更新'); loadTrips(); }
+  if (res.ok) { toast('已更新'); loadTrips(true); }
   else toast(res.error, true);
 }
 
@@ -601,6 +666,7 @@ async function createTrip() {
   if (res.ok) {
     toast(res.message || '旅行已建立');
     ['ft-title','ft-country','ft-start','ft-end','ft-itinerary','ft-inclusions','ft-price-single','ft-price-couple','ft-max','ft-min','ft-notes'].forEach(id => document.getElementById(id).value = '');
+    fetchedAt.trips = 0; delete inflight.trips;
     switchTab('trips');
   } else toast(res.error || '建立失敗', true);
 }
@@ -743,7 +809,7 @@ async function saveEdit() {
     certMaxSpots: certMax,
     active:       document.getElementById('ef-active').checked,
   });
-  if (res.ok) { toast('已儲存'); closeEditModal(); loadSessions(); }
+  if (res.ok) { toast('已儲存'); closeEditModal(); loadSessions(true); }
   else toast(res.error || '儲存失敗', true);
 }
 
@@ -753,16 +819,28 @@ function closeEditModal(e) {
 }
 
 // ── 學員名單 ──────────────────────────────────────
-async function loadMembers() {
+async function loadMembers(force) {
   const el = document.getElementById('members-list');
-  el.innerHTML = '<div style="text-align:center;padding:20px;color:#7FAFC5"><span class="loading-spinner"></span>載入中…</div>';
-  const res = await api({ action: 'getMembers', password: pwd });
-  if (!res.ok) { el.innerHTML = `<div style="color:#C04545">${res.error}</div>`; return; }
-  allMembers = (res.members || []).sort((a, b) => {
-    const order = { pending: 0, rejected: 1, approved: 2 };
-    return (order[a.approvalStatus||'pending']||0) - (order[b.approvalStatus||'pending']||0);
+  const hasData = allMembers.length > 0;
+  if (hasData) renderMembersList();
+  else el.innerHTML = '<div style="text-align:center;padding:20px;color:#7FAFC5"><span class="loading-spinner"></span>載入中…</div>';
+  if (force) { fetchedAt.members = 0; delete inflight.members; }
+
+  if (hasData) setSyncing(true);
+  await revalidate('members', async () => {
+    const res = await api({ action: 'getMembers', password: pwd });
+    if (res.ok) {
+      allMembers = (res.members || []).sort((a, b) => {
+        const order = { pending: 0, rejected: 1, approved: 2 };
+        return (order[a.approvalStatus||'pending']||0) - (order[b.approvalStatus||'pending']||0);
+      });
+      fetchedAt.members = Date.now();
+      renderMembersList();
+    } else if (!hasData) {
+      el.innerHTML = `<div style="color:#C04545">${res.error}</div>`;
+    }
   });
-  renderMembersList();
+  setSyncing(false);
 }
 
 function renderMembersList() {
@@ -867,7 +945,7 @@ function toggleEditPanel(memberId) {
 
 async function approveStudentAction(memberId, approved) {
   const res = await api({ action: 'approveStudent', password: pwd, memberId, approved });
-  if (res.ok) { toast(approved ? '✅ 已核准' : '已拒絕'); loadMembers(); }
+  if (res.ok) { toast(approved ? '✅ 已核准' : '已拒絕'); loadMembers(true); }
   else toast(res.error || '操作失敗', true);
 }
 
@@ -959,21 +1037,21 @@ function copyText(text, label) {
 async function deleteSessionAction(id, title) {
   if (!confirm(`確認刪除活動「${title}」？\n此操作無法復原。`)) return;
   const res = await api({ action: 'deleteSession', password: pwd, sessionId: id });
-  if (res.ok) { toast('活動已刪除'); loadSessions(); }
+  if (res.ok) { toast('活動已刪除'); loadSessions(true); }
   else toast(res.error || '刪除失敗', true);
 }
 
 async function deleteTripAction(id, title) {
   if (!confirm(`確認刪除旅行「${title}」？\n相關報名紀錄也會一併刪除，此操作無法復原。`)) return;
   const res = await api({ action: 'deleteTrip', password: pwd, tripId: id });
-  if (res.ok) { toast('旅行已刪除'); loadTrips(); }
+  if (res.ok) { toast('旅行已刪除'); loadTrips(true); }
   else toast(res.error || '刪除失敗', true);
 }
 
 async function deleteMemberAction(id, name) {
   if (!confirm(`確認刪除學員「${name}」？\n此操作無法復原。`)) return;
   const res = await api({ action: 'deleteMember', password: pwd, memberId: id });
-  if (res.ok) { toast('學員已刪除'); loadMembers(); }
+  if (res.ok) { toast('學員已刪除'); loadMembers(true); }
   else toast(res.error || '刪除失敗', true);
 }
 
@@ -1006,14 +1084,10 @@ async function confirmPaymentAction(enrollId, elemId, checkbox, lineUid, session
 }
 
 // ── 公告管理 ──────────────────────────────────────
-async function loadAnnouncements() {
+function renderAnnouncements() {
   const el = document.getElementById('announcements-list');
-  el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
-  const res = await api({ action: 'getAnnouncements' });
-  if (!res.ok) { el.innerHTML = `<div class="empty-state" style="color:#C04545">${res.error}</div>`; return; }
-  const list = res.announcements || [];
-  if (!list.length) { el.innerHTML = '<div class="empty-state">目前沒有公告</div>'; return; }
-  el.innerHTML = list.map(a => `
+  if (!allAnnouncements.length) { el.innerHTML = '<div class="empty-state">目前沒有公告</div>'; return; }
+  el.innerHTML = allAnnouncements.map(a => `
     <div class="member-row" style="align-items:flex-start;gap:10px">
       <div style="flex:1">
         <div style="font-size:14px;color:#EEF4FF;line-height:1.6">${esc(a.text)}</div>
@@ -1022,6 +1096,27 @@ async function loadAnnouncements() {
       <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);color:#00C9B1;white-space:nowrap;flex-shrink:0">顯示中</span>
       <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="deleteAnnouncementAction('${esc(a.id)}')">🗑 刪除</button>
     </div>`).join('');
+}
+
+async function loadAnnouncements(force) {
+  const el = document.getElementById('announcements-list');
+  const hasData = allAnnouncements.length > 0;
+  if (hasData) renderAnnouncements();
+  else el.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span>載入中…</div>';
+  if (force) { fetchedAt.ann = 0; delete inflight.ann; }
+
+  if (hasData) setSyncing(true);
+  await revalidate('ann', async () => {
+    const res = await api({ action: 'getAnnouncements' });
+    if (res.ok) {
+      allAnnouncements = res.announcements || [];
+      fetchedAt.ann = Date.now();
+      renderAnnouncements();
+    } else if (!hasData) {
+      el.innerHTML = `<div class="empty-state" style="color:#C04545">${res.error}</div>`;
+    }
+  });
+  setSyncing(false);
 }
 
 async function createAnnouncementAction() {
@@ -1036,14 +1131,14 @@ async function createAnnouncementAction() {
     toast(res.message || '公告已建立');
     document.getElementById('ann-text').value = '';
     document.getElementById('ann-active').checked = true;
-    loadAnnouncements();
+    loadAnnouncements(true);
   } else toast(res.error || '建立失敗', true);
 }
 
 async function deleteAnnouncementAction(id) {
   if (!confirm('確認刪除此公告？')) return;
   const res = await api({ action: 'deleteAnnouncement', password: pwd, announcementId: id });
-  if (res.ok) { toast('公告已刪除'); loadAnnouncements(); }
+  if (res.ok) { toast('公告已刪除'); loadAnnouncements(true); }
   else toast(res.error || '刪除失敗', true);
 }
 
