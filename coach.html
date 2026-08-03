@@ -378,7 +378,9 @@ async function login() {
     pwd = p;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-screen').style.display  = 'block';
-    loadSessions();
+    // 登入回應已帶活動列表就直接用，省一次 GAS 往返；舊版後端沒帶才再抓一次
+    if (res.sessions) { allSessions = res.sessions; renderSessions(); }
+    else loadSessions();
   } else {
     document.getElementById('login-err').textContent = res.error || '密碼錯誤';
     document.getElementById('login-err').style.display = 'block';
@@ -888,15 +890,13 @@ async function saveStudentAll(memberId, lineUid, btn) {
   const label = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '儲存中…'; }
 
-  const [statsRes, skillRes] = await Promise.all([
-    api({ action: 'updateStudentStats',  password: pwd, memberId, depth, breathHold, certLevel }),
-    api({ action: 'updateStudentSkills', password: pwd, memberId, lineUid, skills }),
-  ]);
+  // 一次往返寫入兩邊（GAS 會把連續請求排隊，分兩次呼叫會明顯變慢）
+  const res = await api({ action: 'saveStudentAll', password: pwd, memberId, lineUid, depth, breathHold, certLevel, skills });
 
   if (btn) { btn.disabled = false; btn.textContent = label; }
 
-  if (!statsRes.ok || !skillRes.ok) {
-    toast((statsRes.error || skillRes.error) || '儲存失敗', true);
+  if (!res.ok) {
+    toast(res.error || '儲存失敗', true);
     return;
   }
   toast('✅ 已儲存潛水資料與技能檢核');

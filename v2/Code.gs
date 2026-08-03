@@ -45,7 +45,7 @@ function dispatch(d) {
     initMember, getSessions, enrollSession, myEnrollments, cancelEnroll,
     coachLogin, allSessions, createSession, updateSession, deleteSession,
     getEnrollList, notifyStudents, confirmPayment, getMembers, deleteMember,
-    approveStudent, updateStudentStats, getStudentSkills, updateStudentSkills,
+    approveStudent, updateStudentStats, getStudentSkills, updateStudentSkills, saveStudentAll,
     getAnnouncements, createAnnouncement, deleteAnnouncement,
     createTrip, getTrips, enrollTrip, cancelTripEnroll, myTripEnrollments,
     getTripEnrollList, updateTrip, deleteTrip,
@@ -244,8 +244,14 @@ function cancelEnroll({lineUid, sessionId}) {
 }
 
 // ── 教練 API ─────────────────────────────────────────────────
+// 登入時順便把活動列表一起回傳，省一次 GAS 往返（連續請求會被排隊，很花時間）
 function coachLogin({password}) {
-  return password===CFG.COACH_PWD ? {ok:true} : {ok:false,error:'密碼錯誤'};
+  if (password !== CFG.COACH_PWD) return {ok:false, error:'密碼錯誤'};
+  try {
+    return {ok:true, sessions: allSessions({password}).sessions};
+  } catch(e) {
+    return {ok:true};   // 活動抓失敗不影響登入，前端會自行再抓一次
+  }
 }
 
 function allSessions({password}) {
@@ -371,6 +377,15 @@ function updateStudentSkills({password, memberId, lineUid, skills}) {
   }
   sh.appendRow([memberId, lineUid || '', json, new Date().toISOString()]);
   return {ok:true};
+}
+
+// 潛水資料 + 技能檢核一次寫入，省一次 GAS 往返
+function saveStudentAll({password, memberId, lineUid, depth, breathHold, certLevel, skills}) {
+  if (!auth(password)) return noAuth();
+  if (!memberId) return {ok:false, error:'參數不完整'};
+  const a = updateStudentStats({password, memberId, depth, breathHold, certLevel});
+  if (!a.ok) return a;
+  return updateStudentSkills({password, memberId, lineUid, skills});
 }
 
 function approveStudent({password, memberId, approved}) {
