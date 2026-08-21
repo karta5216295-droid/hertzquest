@@ -715,13 +715,15 @@ async function openEnrollModal(sessionId, title) {
            <span style="font-size:11px;color:#7FAFC5">已收款 ☐</span>
          </label>`;
     return `
-    <div class="member-row">
+    <div class="member-row" id="enroll-row-${eid}">
       <div class="member-avatar">${(m.name||'?').charAt(0)}</div>
       <div class="member-info">
         <div class="member-name">${esc(m.name)}</div>
         <div class="member-phone">${esc(m.phone||'')}</div>
-        <div class="member-date">報名於 ${fmtDT(m.at)}</div>
+        <div class="member-date">報名於 ${fmtDT(m.at)}${m.transferDate?`　·　匯款 ${esc(m.transferDate)}`:''}</div>
         ${m.rental?`<div style="font-size:11px;color:#C9A84C;margin-top:5px;line-height:1.7;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.28);border-radius:8px;padding:6px 9px">🤿 ${esc(m.rental)}<br><span style="color:#7FAFC5">團練 $${sessionPrice} ＋ 租借 $${m.rentalTotal||0}　</span><span style="font-weight:800;color:#C9A84C">應收 $${sessionPrice + (Number(m.rentalTotal)||0)}</span></div>`:''}
+        <button class="btn btn-danger btn-sm" style="margin-top:7px;padding:4px 10px;font-size:11px"
+          onclick="coachCancelEnrollAction('${esc(m.id||'')}','${eid}','${esc(m.lineUid||'')}',${m.rowIndex||0},'${esc(m.name||'')}',this)">✗ 取消此人報名</button>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
         ${m.certLevel?`<span class="cert-badge">${certName(m.certLevel)}</span>`:''}
@@ -730,6 +732,24 @@ async function openEnrollModal(sessionId, title) {
       </div>
     </div>`;
   }).join('');
+}
+
+// 教練代為取消報名（不受學員端 7 日限制）
+async function coachCancelEnrollAction(enrollId, elemId, lineUid, rowIndex, name, btn) {
+  if (!confirm(`確認取消「${name}」的報名？\n名額會自動釋出，此操作無法復原。`)) return;
+  if (btn) { btn.disabled = true; btn.textContent = '取消中…'; }
+  const res = await api({ action:'coachCancelEnroll', password: pwd,
+                          sessionId: currentSessionId, lineUid, enrollId, rowIndex });
+  if (res.ok) {
+    toast(`已取消 ${name} 的報名`);
+    const row = document.getElementById('enroll-row-' + elemId);
+    if (row) row.remove();
+    fetchedAt.sessions = 0; delete inflight.sessions;   // 名額有變，下次進活動列表要重抓
+    loadSessions(true);
+  } else {
+    toast(res.error || '取消失敗', true);
+    if (btn) { btn.disabled = false; btn.textContent = '✗ 取消此人報名'; }
+  }
 }
 
 function closeEnrollModal() { document.getElementById('enroll-modal').classList.remove('show'); }

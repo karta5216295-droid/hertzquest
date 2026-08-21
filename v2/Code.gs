@@ -13,8 +13,19 @@ const C = {
   M: { ID:1,UID:2,NAME:3,PHONE:4,DISPLAY:5,PIC:6,STATUS:7,AT:8,
        FIRST_CLASS:9,COACH_NAME:10,LINE_ID:11,DEPTH:12,BREATH:13,CERT:14,APPROVAL:15 },
   S: { ID:1,TITLE:2,DATE:3,TIME:4,LOC:5,MEET:6,DESC:7,COACH:8,MAX:9,LEFT:10,PRICE:11,ACTIVE:12,AT:13,UNCERT_MAX:14 },
-  E: { ID:1,SID:2,UID:3,NAME:4,PHONE:5,CERT:6,AT:7,TRANSFER:8,PAYMENT:9 },
+  E: { ID:1,SID:2,UID:3,NAME:4,PHONE:5,CERT:6,AT:7,TRANSFER:8,PAYMENT:9,
+       RENTAL:10,RENTAL_TOTAL:11,TRANSFER_DATE:12 },
 };
+
+// 取消規則：潛水日當日往前推 7 日內不得於系統取消（僅接受名額轉讓）
+const CANCEL_LIMIT_DAYS = 7;
+
+// 回傳距離潛水日還有幾天（今天=0；負數代表已過）
+function daysUntil_(dateVal) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateVal); d.setHours(0,0,0,0);
+  return Math.round((d - today) / 86400000);
+}
 
 // AIDA2 過課技能清單（21 項，與前端一致）
 const A2_SKILL_LIST = ['放鬆課程','呼吸課程','靜態閉氣潛伴制度','靜態閉氣≥2分鐘','靜態閉氣救援','平潛潛伴制度','動態平潛姿態','動態平潛≥40M','動態平潛救援','攀繩下潛12~20M','安全繩使用','可控制轉身','平衡耳壓','躬身下潛','恆重下潛姿態','對繩下潛','恆重下潛12~20M','水面救援','5~10M水下救援','潛伴水面戒護','潛伴水下10M戒護'];
@@ -44,7 +55,7 @@ function dispatch(d) {
   const map = {
     initMember, getSessions, enrollSession, myEnrollments, cancelEnroll,
     coachLogin, allSessions, createSession, updateSession, deleteSession,
-    getEnrollList, notifyStudents, confirmPayment, getMembers, deleteMember,
+    getEnrollList, notifyStudents, confirmPayment, getMembers, deleteMember, coachCancelEnroll,
     approveStudent, updateStudentStats, getStudentSkills, updateStudentSkills, saveStudentAll,
     getAnnouncements, createAnnouncement, deleteAnnouncement,
     createTrip, getTrips, enrollTrip, cancelTripEnroll, myTripEnrollments,
@@ -121,7 +132,7 @@ function getSessions({lineUid}) {
   return {ok:true, sessions};
 }
 
-function enrollSession({lineUid, sessionId, certLevel, transferCode, rental, rentalTotal}) {
+function enrollSession({lineUid, sessionId, certLevel, transferCode, transferDate, rental, rentalTotal}) {
   // 確認學員已登記
   const mRows = sh_('Members').getDataRange().getValues();
   const member = mRows.slice(1).find(r => r[C.M.UID-1]===lineUid);
@@ -163,10 +174,10 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode, rental, ren
   }
   if (Number(sData[C.S.LEFT-1]) <= 0) return {ok:false,error:'名額已滿'};
 
-  // 寫入報名（第10欄=租借明細、第11欄=租借金額）
+  // 寫入報名（10=租借明細、11=租借金額、12=匯款日期）
   const id='E'+Date.now();
   const rentTotal = Number(rentalTotal) || 0;
-  eSheet.appendRow([id,sessionId,lineUid,member[C.M.NAME-1],member[C.M.PHONE-1],effectiveCertLevel||'',new Date(),transferCode||'','pending',rental||'',rentTotal]);
+  eSheet.appendRow([id,sessionId,lineUid,member[C.M.NAME-1],member[C.M.PHONE-1],effectiveCertLevel||'',new Date(),transferCode||'','pending',rental||'',rentTotal,transferDate||'']);
   sSheet.getRange(sRowIdx, C.S.LEFT).setValue(Number(sData[C.S.LEFT-1])-1);
 
   // LINE 確認通知 — 日期/時間需格式化（Sheets 會存成 Date 物件）
@@ -213,7 +224,10 @@ function myEnrollments({lineUid}) {
         ...toSession(s),
         enrollId:      String(r[C.E.ID-1]||''),
         transferCode:  r[C.E.TRANSFER-1]||'',
+        transferDate:  formatDate(r[C.E.TRANSFER_DATE-1]),
         paymentStatus: r[C.E.PAYMENT-1]||'pending',
+        daysLeft:      daysUntil_(s[C.S.DATE-1]),
+        cancelLimitDays: CANCEL_LIMIT_DAYS,
       };
     })
     .filter(Boolean)
@@ -222,25 +236,65 @@ function myEnrollments({lineUid}) {
   return {ok:true, enrollments:list};
 }
 
+// 學員自行取消：潛水日往前推 7 日內不得取消（前端也會擋，這裡是後端保險）
 function cancelEnroll({lineUid, sessionId}) {
-  const eSheet = sh_('Enrollments');
-  const eRows = eSheet.getDataRange().getValues();
-  for (let i=1;i<eRows.length;i++) {
-    if (eRows[i][C.E.SID-1]===sessionId && eRows[i][C.E.UID-1]===lineUid) {
-      eSheet.deleteRow(i+1);
-      // 還名額
-      const sSheet = sh_('Sessions');
-      const sRows = sSheet.getDataRange().getValues();
-      for (let j=1;j<sRows.length;j++) {
-        if (sRows[j][C.S.ID-1]===sessionId) {
-          sSheet.getRange(j+1, C.S.LEFT).setValue(Number(sRows[j][C.S.LEFT-1])+1);
-          break;
-        }
-      }
-      return {ok:true, message:'已取消報名'};
+  const sSheet = sh_('Sessions');
+  const sRows = sSheet.getDataRange().getValues();
+  let sRowIdx = -1, sData = null;
+  for (let j=1;j<sRows.length;j++) {
+    if (sRows[j][C.S.ID-1]===sessionId) { sRowIdx=j+1; sData=sRows[j]; break; }
+  }
+  if (sData) {
+    const left = daysUntil_(sData[C.S.DATE-1]);
+    if (left <= CANCEL_LIMIT_DAYS) {
+      return {ok:false, error:`潛水日前 ${CANCEL_LIMIT_DAYS} 日內無法自行取消，僅接受群內名額轉讓。\n請私訊「赫茲學員專屬」官方帳號洽詢。`};
     }
   }
-  return {ok:false, error:'找不到報名紀錄'};
+  return removeEnrollment_(sessionId, {lineUid}, sRowIdx, sData);
+}
+
+// 教練代為取消：不受 7 日限制
+function coachCancelEnroll({password, sessionId, lineUid, enrollId, rowIndex}) {
+  if (!auth(password)) return noAuth();
+  if (!sessionId) return {ok:false, error:'參數不完整'};
+  const sSheet = sh_('Sessions');
+  const sRows = sSheet.getDataRange().getValues();
+  let sRowIdx = -1, sData = null;
+  for (let j=1;j<sRows.length;j++) {
+    if (sRows[j][C.S.ID-1]===sessionId) { sRowIdx=j+1; sData=sRows[j]; break; }
+  }
+  return removeEnrollment_(sessionId, {lineUid, enrollId, rowIndex}, sRowIdx, sData);
+}
+
+// 共用：刪掉報名列並把名額加回去
+function removeEnrollment_(sessionId, match, sRowIdx, sData) {
+  const eSheet = sh_('Enrollments');
+  const eRows = eSheet.getDataRange().getValues();
+
+  // 依可靠度依序比對：報名ID > LINE UID > 行號。
+  // 行號只在前兩者都沒給時才用，避免列表變動後誤刪同場次的其他人。
+  const findBy = test => {
+    for (let i=1;i<eRows.length;i++) {
+      const r = eRows[i];
+      if (String(r[C.E.SID-1]) !== String(sessionId)) continue;
+      if (test(r, i+1)) return i+1;
+    }
+    return -1;
+  };
+
+  let target = -1;
+  if (match.enrollId) target = findBy(r => String(r[C.E.ID-1]) === String(match.enrollId));
+  if (target < 0 && match.lineUid) target = findBy(r => String(r[C.E.UID-1]) === String(match.lineUid));
+  if (target < 0 && !match.enrollId && !match.lineUid && match.rowIndex) {
+    target = findBy((r, rowNo) => rowNo === Number(match.rowIndex));
+  }
+  if (target < 0) return {ok:false, error:'找不到報名紀錄'};
+
+  eSheet.deleteRow(target);
+  if (sRowIdx > 0 && sData) {
+    sh_('Sessions').getRange(sRowIdx, C.S.LEFT).setValue(Number(sData[C.S.LEFT-1])+1);
+  }
+  return {ok:true, message:'已取消報名'};
 }
 
 // ── 教練 API ─────────────────────────────────────────────────
@@ -455,6 +509,7 @@ function getEnrollList({password, sessionId}) {
         paymentStatus:r[C.E.PAYMENT-1]||'pending',
         rental:       String(r[rentalIdx]||''),
         rentalTotal:  Number(r[rentalTotalIdx])||0,
+        transferDate: formatDate(r[C.E.TRANSFER_DATE-1]),
       });
     }
   }
@@ -466,11 +521,12 @@ function getEnrollList({password, sessionId}) {
 function fixEnrollmentHeaders() {
   const sheet = sh_('Enrollments');
   const lastCol = sheet.getLastColumn();
-  const head = sheet.getRange(1, 1, 1, Math.max(lastCol, 11)).getValues()[0]
+  const head = sheet.getRange(1, 1, 1, Math.max(lastCol, 12)).getValues()[0]
                     .map(function(h){ return String(h||'').trim(); });
   if (head.indexOf('租借明細') < 0) sheet.getRange(1, 10).setValue('租借明細');
   if (head.indexOf('租借金額') < 0) sheet.getRange(1, 11).setValue('租借金額');
-  return '✅ Enrollments 標題已補上租借欄位';
+  if (head.indexOf('匯款日期') < 0) sheet.getRange(1, 12).setValue('匯款日期');
+  return '✅ Enrollments 標題已補上租借與匯款日期欄位';
 }
 
 function confirmPayment({password, enrollId, lineUid, sessionId, rowIndex}) {
@@ -822,7 +878,7 @@ function setupSheets() {
   };
   init('Members',     ['ID','LINE_UID','真實姓名','電話','LINE暱稱','頭像','狀態','加入時間','初次上課日','教練','LINE_ID','深度','閉氣','證照','審核狀態'],'#1565C0');
   init('Sessions',    ['ID','標題','日期','時間','地點','集合地點','說明','教練','名額上限','剩餘名額','費用','開放報名','建立時間','無照名額'],'#2E7D32');
-  init('Enrollments', ['ID','活動ID','LINE_UID','姓名','電話','證照等級','報名時間','轉帳末5碼','收款狀態','租借明細','租借金額'],'#6A1B9A');
+  init('Enrollments', ['ID','活動ID','LINE_UID','姓名','電話','證照等級','報名時間','轉帳末5碼','收款狀態','租借明細','租借金額','匯款日期'],'#6A1B9A');
   init('Announcements',['id','text','active'],'#4A148C');
   initTripSheets();
   return '✅ Sheets 初始化完成！';
