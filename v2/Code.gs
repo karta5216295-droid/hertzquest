@@ -203,6 +203,7 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode, transferDat
     `📍 地點：${sData[C.S.LOC-1]||''}\n` +
     `🗺 集合點：${sData[C.S.MEET-1]||''}\n` +
     feeMsg +
+    `\n⚠️ 潛水日前 ${CANCEL_LIMIT_DAYS} 日內取消或未到，不予退費，僅接受群內名額轉讓。\n` +
     `\n教練 ${sData[C.S.COACH-1]} 期待您的到來！`
   );
 
@@ -516,7 +517,7 @@ function getEnrollList({password, sessionId}) {
   return {ok:true, list};
 }
 
-// 修補舊 Enrollments 工作表：補上「租借明細／租借金額」兩個標題
+// 修補舊 Enrollments 工作表：補上「租借明細／租借金額／匯款日期」標題
 // （在 GAS 編輯器直接執行這個函式一次即可）
 function fixEnrollmentHeaders() {
   const sheet = sh_('Enrollments');
