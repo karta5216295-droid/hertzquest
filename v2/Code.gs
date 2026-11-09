@@ -100,7 +100,31 @@ function dispatch(d) {
   };
   const fn = map[d.action];
   if (!fn) return {ok:false,error:'Unknown action: '+d.action};
-  return fn(d);
+  return LOCKED_ACTIONS[d.action] ? withLock_(() => fn(d)) : fn(d);
+}
+
+// 會改動名額／報名列的動作要「排隊」一個一個做：
+// 避免兩人同時搶最後一個名額而超收、連按兩下重複報名、或刪列後行號錯位改到別人
+const LOCKED_ACTIONS = {
+  enrollSession:1, cancelEnroll:1, coachCancelEnroll:1, updateSession:1, confirmPayment:1,
+  enrollTrip:1, cancelTripEnroll:1,
+};
+
+var _lineQueue = null;   // 排隊期間的 LINE 通知先存著，放開鎖之後才送，不讓下一位多等
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return {ok:false, error:'目前操作的人比較多，請稍等幾秒再試一次 🙏'};
+  _lineQueue = [];
+  let result;
+  try {
+    result = fn();
+    SpreadsheetApp.flush();      // 確定寫進試算表後才放下一位進來
+  } finally {
+    lock.releaseLock();
+  }
+  const q = _lineQueue; _lineQueue = null;
+  q.forEach(m => sendLine(m[0], m[1]));
+  return result;
 }
 
 function res(data) {
@@ -110,14 +134,18 @@ function res(data) {
 
 // ── 學員 API ─────────────────────────────────────────────────
 function initMember({lineUid, displayName, pictureUrl, realName, phone, firstClassDate, coachName, lineId}) {
+  if (!lineUid) return {ok:false, error:'無法辨識 LINE 身分，請從 LINE 重新開啟'};
   const sh = sh_('Members');
   const rows = sh.getDataRange().getValues();
 
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][C.M.UID-1] === lineUid) {
-      // 更新 LINE 暱稱/頭像
-      sh.getRange(i+1, C.M.DISPLAY).setValue(displayName||'');
-      sh.getRange(i+1, C.M.PIC).setValue(pictureUrl||'');
+      // 更新 LINE 暱稱/頭像 — 有變才寫（每次開啟都寫很花時間）
+      const newDisp = displayName || rows[i][C.M.DISPLAY-1] || '';
+      const newPic  = pictureUrl  || rows[i][C.M.PIC-1]     || '';
+      if (String(newDisp) !== String(rows[i][C.M.DISPLAY-1]||'') || String(newPic) !== String(rows[i][C.M.PIC-1]||'')) {
+        sh.getRange(i+1, C.M.DISPLAY, 1, 2).setValues([[newDisp, newPic]]);   // 第5、6欄相鄰，一次寫
+      }
       const r = rows[i];
       return {ok:true, member:{
         id:           r[C.M.ID-1],
@@ -139,9 +167,16 @@ function initMember({lineUid, displayName, pictureUrl, realName, phone, firstCla
   // 新學員 — 如果沒有提交真實資料，先回傳 isNew:true 讓前端顯示表單
   if (!realName || !phone) return {ok:true, member:null, isNew:true};
 
-  const id = 'M'+Date.now();
-  sh.appendRow([id,lineUid,realName,phone,displayName||'',pictureUrl||'','active',new Date(),firstClassDate||'',coachName||'',lineId||'','','','','pending']);
-  return {ok:true, member:{id,lineUid,realName,phone,displayName,firstClassDate:firstClassDate||'',coachName:coachName||'',lineId:lineId||'',depth:'',breathHold:'',certLevel:'',approvalStatus:'pending'}, isNew:true, justRegistered:true};
+  // 新增學員要排隊 + 再確認一次，避免連按兩下或網路重送建立兩筆重複資料
+  return withLock_(() => {
+    const fresh = sh.getDataRange().getValues();
+    if (fresh.slice(1).some(r => r[C.M.UID-1] === lineUid)) {
+      return initMember({lineUid, displayName, pictureUrl});   // 已經登記過 → 直接回傳現有資料
+    }
+    const id = 'M'+Date.now();
+    sh.appendRow([id,lineUid,realName,phone,displayName||'',pictureUrl||'','active',new Date(),firstClassDate||'',coachName||'',lineId||'','','','','pending']);
+    return {ok:true, member:{id,lineUid,realName,phone,displayName,firstClassDate:firstClassDate||'',coachName:coachName||'',lineId:lineId||'',depth:'',breathHold:'',certLevel:'',approvalStatus:'pending'}, isNew:true, justRegistered:true};
+  });
 }
 
 function getSessions({lineUid}) {
@@ -150,12 +185,13 @@ function getSessions({lineUid}) {
   const today = new Date(); today.setHours(0,0,0,0);
 
   const enrolled = new Set();
+  const myCert = {};       // 學員自己在各場次報名的證照別（取消時前端要扣對名額）
   const uncertCnt = {};
   const cnt = {};
   eRows.slice(1).forEach(r => {
     const sid = r[C.E.SID-1];
     if (!sid || !r[C.E.UID-1]) return;
-    if (r[C.E.UID-1]===lineUid) enrolled.add(sid);
+    if (r[C.E.UID-1]===lineUid) { enrolled.add(sid); myCert[sid] = r[C.E.CERT-1]||''; }
     cnt[sid] = (cnt[sid]||0)+1;
     if (r[C.E.CERT-1]==='無證') uncertCnt[sid] = (uncertCnt[sid]||0)+1;
   });
@@ -164,7 +200,8 @@ function getSessions({lineUid}) {
     .filter(r => String(r[C.S.ACTIVE-1]).toLowerCase()==='true')
     .filter(r => { try { return new Date(r[C.S.DATE-1]) >= today; } catch(e){ return false; } })
     .sort((a,b) => new Date(a[C.S.DATE-1])-new Date(b[C.S.DATE-1]))
-    .map(r => ({...toSession(r), enrolled: enrolled.has(r[C.S.ID-1]), enrollCount: cnt[r[C.S.ID-1]]||0, uncertCount: uncertCnt[r[C.S.ID-1]]||0}));
+    .map(r => ({...toSession(r), enrolled: enrolled.has(r[C.S.ID-1]), certLevel: myCert[r[C.S.ID-1]]||'',
+                enrollCount: cnt[r[C.S.ID-1]]||0, uncertCount: uncertCnt[r[C.S.ID-1]]||0}));
 
   return {ok:true, sessions};
 }
@@ -184,7 +221,8 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode, transferDat
   const eSheet = sh_('Enrollments');
   const eRows = eSheet.getDataRange().getValues();
   if (eRows.slice(1).find(r => r[C.E.SID-1]===sessionId && r[C.E.UID-1]===lineUid)) {
-    return {ok:false, error:'您已報名此活動'};
+    // already:true → 前端視為成功（多半是網路重送，第一次其實已經報名成功）
+    return {ok:false, already:true, error:'您已報名此活動'};
   }
 
   // 確認名額
@@ -195,6 +233,9 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode, transferDat
     if (sRows[i][C.S.ID-1]===sessionId) { sRowIdx=i+1; sData=sRows[i]; break; }
   }
   if (!sData) return {ok:false,error:'找不到此活動'};
+  // 學員畫面可能停在舊資料：教練已關閉報名、或活動日已過，都要擋下
+  if (String(sData[C.S.ACTIVE-1]).toLowerCase() !== 'true') return {ok:false, error:'此活動已關閉報名'};
+  if (daysUntil_(sData[C.S.DATE-1]) < 0) return {ok:false, error:'此活動已結束'};
   // 分別計算無照/有照已報人數
   const allForSession = eRows.slice(1).filter(r => r[C.E.SID-1]===sessionId);
   const totalEnrolled = allForSession.length;
@@ -209,13 +250,15 @@ function enrollSession({lineUid, sessionId, certLevel, transferCode, transferDat
     const certEnrolled = totalEnrolled - uncertEnrolled;
     if (certMax > 0 && certEnrolled >= certMax) return {ok:false, error:'有照名額已滿'};
   }
-  if (Number(sData[C.S.LEFT-1]) <= 0) return {ok:false,error:'名額已滿'};
+  // 總名額用實際報名人數判斷（不依賴「剩餘名額」欄，那欄可能因手動改表而不準）
+  const maxTotal = Number(sData[C.S.MAX-1]) || 0;
+  if (totalEnrolled >= maxTotal) return {ok:false,error:'名額已滿'};
 
   // 寫入報名（10=租借明細、11=租借金額、12=匯款日期）
   const id='E'+Date.now();
   const rentTotal = Number(rentalTotal) || 0;
   eSheet.appendRow([id,sessionId,lineUid,member[C.M.NAME-1],member[C.M.PHONE-1],effectiveCertLevel||'',new Date(),transferCode||'','pending',rental||'',rentTotal,transferDate||'']);
-  sSheet.getRange(sRowIdx, C.S.LEFT).setValue(Number(sData[C.S.LEFT-1])-1);
+  sSheet.getRange(sRowIdx, C.S.LEFT).setValue(Math.max(0, maxTotal - totalEnrolled - 1));
 
   // LINE 確認通知 — 日期/時間需格式化（Sheets 會存成 Date 物件）
   const dateStr = formatDate(sData[C.S.DATE-1]);
@@ -326,11 +369,14 @@ function removeEnrollment_(sessionId, match, sRowIdx, sData) {
   if (target < 0 && !match.enrollId && !match.lineUid && match.rowIndex) {
     target = findBy((r, rowNo) => rowNo === Number(match.rowIndex));
   }
-  if (target < 0) return {ok:false, error:'找不到報名紀錄'};
+  // 找不到 = 這筆已經不在了（多半是網路重送，第一次其實已取消成功）→ 視為已取消
+  if (target < 0) return {ok:true, already:true, message:'此報名已取消'};
 
   eSheet.deleteRow(target);
   if (sRowIdx > 0 && sData) {
-    sh_('Sessions').getRange(sRowIdx, C.S.LEFT).setValue(Number(sData[C.S.LEFT-1])+1);
+    // 剩餘名額依實際人數重算（刪掉的那筆要扣掉）
+    const remaining = eRows.slice(1).filter(r => String(r[C.E.SID-1]) === String(sessionId)).length - 1;
+    sh_('Sessions').getRange(sRowIdx, C.S.LEFT).setValue(Math.max(0, (Number(sData[C.S.MAX-1])||0) - remaining));
   }
   return {ok:true, message:'已取消報名'};
 }
@@ -378,14 +424,28 @@ function createSession({password, title, date, time, location, meetingPoint, des
   return {ok:true,id,message:`「${title}」已建立`};
 }
 
-function updateSession({password, sessionId, ...fields}) {
+function updateSession({password, sessionId, uncertMax, certMaxSpots, ...fields}) {
   if (!auth(password)) return noAuth();
   const sh = sh_('Sessions');
   const rows = sh.getDataRange().getValues();
   for (let i=1;i<rows.length;i++) {
     if (rows[i][C.S.ID-1]===sessionId) {
-      const map = {title:C.S.TITLE,date:C.S.DATE,time:C.S.TIME,location:C.S.LOC,meetingPoint:C.S.MEET,description:C.S.DESC,coach:C.S.COACH,maxSpots:C.S.MAX,price:C.S.PRICE,active:C.S.ACTIVE,uncertMax:C.S.UNCERT_MAX};
+      const map = {title:C.S.TITLE,date:C.S.DATE,time:C.S.TIME,location:C.S.LOC,meetingPoint:C.S.MEET,description:C.S.DESC,coach:C.S.COACH,price:C.S.PRICE,active:C.S.ACTIVE};
       Object.entries(fields).forEach(([k,v]) => { if(map[k]) sh.getRange(i+1,map[k]).setValue(v); });
+
+      // 名額有改 → 總名額 = 無照 + 有照（有照 0 = 不分證照），剩餘名額依實際報名人數重算
+      if (uncertMax !== undefined || certMaxSpots !== undefined) {
+        const r = rows[i];
+        const oldU = Number(r[C.S.UNCERT_MAX-1]) || 4;
+        const oldC = Math.max(0, (Number(r[C.S.MAX-1])||0) - oldU);
+        const u = uncertMax    !== undefined ? (Number(uncertMax) || 4)          : oldU;
+        const c = certMaxSpots !== undefined ? Math.max(0, Number(certMaxSpots)||0) : oldC;
+        const enrolledNow = sh_('Enrollments').getDataRange().getValues().slice(1)
+          .filter(e => String(e[C.E.SID-1]) === String(sessionId)).length;
+        sh.getRange(i+1, C.S.MAX).setValue(u + c);
+        sh.getRange(i+1, C.S.LEFT).setValue(Math.max(0, u + c - enrolledNow));
+        sh.getRange(i+1, C.S.UNCERT_MAX).setValue(u);
+      }
       return {ok:true};
     }
   }
@@ -574,12 +634,7 @@ function confirmPayment({password, enrollId, lineUid, sessionId, rowIndex}) {
   const rows = sh.getDataRange().getValues();
   const PAYMENT_COL = C.E.PAYMENT; // 9
 
-  // 1. 直接用行號（最準確）
-  if (rowIndex && rowIndex > 1 && rowIndex <= rows.length) {
-    sh.getRange(rowIndex, PAYMENT_COL).setValue('confirmed');
-    return {ok:true};
-  }
-  // 2. 用 enrollId 查
+  // 1. 用報名 ID 查（最可靠：名單裡有人被取消、行號往上移也不會錯）
   if (enrollId) {
     for (let i=1;i<rows.length;i++) {
       if (String(rows[i][C.E.ID-1])===String(enrollId)) {
@@ -588,16 +643,23 @@ function confirmPayment({password, enrollId, lineUid, sessionId, rowIndex}) {
       }
     }
   }
-  // 3. 用 lineUid + sessionId 查（備援）
+  // 2. 用 lineUid + sessionId 查（備援）
   if (lineUid && sessionId) {
     for (let i=1;i<rows.length;i++) {
-      if (String(rows[i][C.E.UID-1])===lineUid && String(rows[i][C.E.SID-1])===sessionId) {
+      if (String(rows[i][C.E.UID-1])===String(lineUid) && String(rows[i][C.E.SID-1])===String(sessionId)) {
         sh.getRange(i+1, PAYMENT_COL).setValue('confirmed');
         return {ok:true};
       }
     }
   }
-  return {ok:false, error:'找不到報名紀錄'};
+  // 3. 行號只在沒有 ID 時才用，而且要確認那一列真的是同一場次，避免標錯人
+  rowIndex = Number(rowIndex);
+  if (!enrollId && !lineUid && rowIndex > 1 && rowIndex <= rows.length &&
+      String(rows[rowIndex-1][C.E.SID-1]) === String(sessionId)) {
+    sh.getRange(rowIndex, PAYMENT_COL).setValue('confirmed');
+    return {ok:true};
+  }
+  return {ok:false, error:'找不到報名紀錄，請關閉名單重新開啟'};
 }
 
 function notifyStudents({password, sessionId, message}) {
@@ -678,6 +740,7 @@ function toMember(r) {
 }
 
 function sendLine(toUid, text) {
+  if (_lineQueue) { _lineQueue.push([toUid, text]); return; }   // 排隊中 → 放開鎖後再送
   if (!CFG.LINE_TOKEN||CFG.LINE_TOKEN.includes('REPLACE')) { console.log('LINE token not set'); return; }
   try {
     UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push',{

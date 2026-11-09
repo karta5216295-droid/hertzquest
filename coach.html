@@ -325,7 +325,19 @@ body { font-family: -apple-system, 'Noto Sans TC', sans-serif; background: #060E
       <div class="form-group"><label>負責教練</label><input type="text" id="ef-coach"></div>
       <div class="form-group"><label>費用（NT$）</label><input type="number" id="ef-price"></div>
     </div>
-    <div class="form-group"><label>有證名額上限</label><input type="number" id="ef-max"></div>
+    <div class="form-group" style="margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600">
+        <input type="checkbox" id="ef-no-cert" onchange="toggleEditCertFields()" style="width:16px;height:16px;accent-color:#00C9B1">
+        不分證照（統一名額）
+      </label>
+    </div>
+    <div id="ef-cert-split-row" class="form-row">
+      <div class="form-group"><label>無照名額</label><input type="number" id="ef-uncert-max" min="1" max="30"></div>
+      <div class="form-group"><label>有照名額</label><input type="number" id="ef-max" min="0" max="50"></div>
+    </div>
+    <div id="ef-no-cert-row" class="form-group" style="display:none">
+      <label>總名額</label><input type="number" id="ef-total-max" min="1" max="50">
+    </div>
     <div class="form-group">
       <div class="toggle-row">
         <label>開放報名</label>
@@ -808,13 +820,34 @@ function openEditModal(id) {
   document.getElementById('ef-desc').value     = s.description || '';
   document.getElementById('ef-coach').value    = s.coach || '';
   document.getElementById('ef-price').value    = s.price || '';
-  document.getElementById('ef-max').value      = s.certMaxSpots || '';
+  // 名額：帶入目前設定（總名額 = 無照 + 有照；有照 0 = 不分證照）
+  const uMax = Number(s.uncertMax || DEFAULT_UNCERT_MAX);
+  const cMax = Math.max(0, Number(s.maxSpots) - uMax);
+  document.getElementById('ef-no-cert').checked    = cMax === 0;
+  document.getElementById('ef-uncert-max').value   = uMax;
+  document.getElementById('ef-max').value          = cMax;
+  document.getElementById('ef-total-max').value    = uMax + cMax;
+  toggleEditCertFields();
   document.getElementById('ef-active').checked = s.active;
   document.getElementById('edit-modal').classList.add('show');
 }
 
+function toggleEditCertFields() {
+  const noCert = document.getElementById('ef-no-cert').checked;
+  document.getElementById('ef-cert-split-row').style.display = noCert ? 'none' : '';
+  document.getElementById('ef-no-cert-row').style.display    = noCert ? '' : 'none';
+}
+
 async function saveEdit() {
-  const certMax = parseInt(document.getElementById('ef-max').value) || 2;
+  const noCert = document.getElementById('ef-no-cert').checked;
+  const uncertMax = noCert
+    ? (parseInt(document.getElementById('ef-total-max').value) || DEFAULT_UNCERT_MAX)
+    : (parseInt(document.getElementById('ef-uncert-max').value) || DEFAULT_UNCERT_MAX);
+  const certMax = noCert ? 0 : Math.max(0, parseInt(document.getElementById('ef-max').value) || 0);
+  const s = allSessions.find(x => x.id === currentSessionId);
+  const enrolledNow = Number(s?.enrollCount || 0);
+  if (uncertMax + certMax < enrolledNow &&
+      !confirm(`目前已有 ${enrolledNow} 人報名，新的總名額只有 ${uncertMax + certMax} 位。\n已報名的人不會被取消，但不會再開放新報名。確定要儲存嗎？`)) return;
   const res = await api({
     action: 'updateSession', password: pwd, sessionId: currentSessionId,
     title:        document.getElementById('ef-title').value.trim(),
@@ -825,7 +858,7 @@ async function saveEdit() {
     description:  document.getElementById('ef-desc').value.trim(),
     coach:        document.getElementById('ef-coach').value.trim(),
     price:        document.getElementById('ef-price').value,
-    uncertMax:    parseInt(document.getElementById('ef-uncert-max')?.value) || DEFAULT_UNCERT_MAX,
+    uncertMax,
     certMaxSpots: certMax,
     active:       document.getElementById('ef-active').checked,
   });
@@ -1163,6 +1196,9 @@ async function deleteAnnouncementAction(id) {
 }
 
 // ── 工具 ──────────────────────────────────────────
+// 這些動作「重送一次就會多做一次」（多建一場活動、學員收到兩次通知），網路失敗時不自動重送
+const NO_RETRY = new Set(['createSession','createAnnouncement','createTrip','notifyStudents']);
+
 async function api(data, attempt=0) {
   try {
     const ctrl = new AbortController();
@@ -1171,6 +1207,9 @@ async function api(data, attempt=0) {
     clearTimeout(timer);
     return await r.json();
   } catch(e) {
+    if (NO_RETRY.has(data.action)) {
+      return { ok: false, error: '網路不穩，請先重新整理看看是否已經成功，再決定要不要重做' };
+    }
     if (attempt < 2) {
       await new Promise(res => setTimeout(res, 700 * (attempt + 1)));
       return api(data, attempt + 1);

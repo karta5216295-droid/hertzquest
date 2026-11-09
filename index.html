@@ -1220,12 +1220,16 @@ async function submitEnroll(sessionId) {
   const confirmBtn = document.getElementById('confirm-enroll-btn');
   if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '報名中…'; }
   const res = await api({ action:'enrollSession', lineUid:profile.userId, sessionId, certLevel:selectedCert, transferCode, transferDate, rental, rentalTotal });
-  if (res.ok) {
+  // already = 網路重送時第一次其實已報名成功，一樣當成功處理
+  if (res.ok || res.already) {
     const s = sessions.find(s=>s.id===sessionId);
-    if (s) {
-      s.enrolled = true; s.certLevel = selectedCert;
+    if (s && !s.enrolled) {
+      // 不分證照（有照名額 0）的場次，後端一律算在無照名額
+      const noCertSplit = Number(s.maxSpots) - Number(s.uncertMax||4) <= 0;
+      s.enrolled = true; s.certLevel = noCertSplit ? '無證' : selectedCert;
       s.spotsLeft = Math.max(0, Number(s.spotsLeft)-1);
-      if (selectedCert === '無證') s.uncertCount = (Number(s.uncertCount)||0)+1;
+      s.enrollCount = (Number(s.enrollCount)||0)+1;
+      if (s.certLevel === '無證') s.uncertCount = (Number(s.uncertCount)||0)+1;
     }
     document.getElementById('modal-inner').innerHTML = `
       <div class="modal-title" style="color:var(--teal)">報名成功</div>
@@ -1260,7 +1264,11 @@ async function cancelEnroll(sessionId) {
   const res = await api({ action:'cancelEnroll', lineUid:profile.userId, sessionId });
   if (res.ok) {
     const s = sessions.find(s=>s.id===sessionId);
-    if (s) { s.enrolled = false; s.spotsLeft = Number(s.spotsLeft)+1; if(s.certLevel==='無證')s.uncertCount=Math.max(0,(s.uncertCount||0)-1); }
+    if (s && s.enrolled) {
+      s.enrolled = false; s.spotsLeft = Number(s.spotsLeft)+1;
+      s.enrollCount = Math.max(0, (Number(s.enrollCount)||0)-1);
+      if (s.certLevel==='無證') s.uncertCount = Math.max(0,(Number(s.uncertCount)||0)-1);
+    }
     closeModal(); toast('已取消報名', 'success'); renderTab(currentTab);
   } else toast(res.error||'取消失敗', 'error');
 }
