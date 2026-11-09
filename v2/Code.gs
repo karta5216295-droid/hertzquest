@@ -1,12 +1,49 @@
 // ================================================================
 // HertzQuest 團練系統 — Backend (Google Apps Script)
 // ================================================================
+// 密鑰（LINE 權杖、教練密碼）不寫在程式碼裡，改存在
+// GAS「專案設定 → 指令碼屬性」，這樣程式碼公開也不會外洩。
+// 需要的屬性名稱：LINE_TOKEN、COACH_PWD
 const CFG = {
   SHEET_ID:   '1Vc0d6T0q-7NQav4ZJpfrJZ7e1BA-vbERMMmsFsyOMyE',
-  LINE_TOKEN: 'NlJBb+6+N7ia+qn9TdbgMMy/Xs9GyPgZZoPfowe7xUAYhm6wxgupfK3shAZ+je8zzIt6eEBAvmGR+I+mqXvw/yLtl+m25Kj9Erh9q2q6JLhZvoZl+jK0jiP6unr1kIh4VG1UrhVj2I7k4autSZ52sgdB04t89/1O/w1cDnyilFU=',
-  COACH_PWD:  'hertz2024',
   LIFF_ID:    '2010027559-58ppHoAr',
+  get LINE_TOKEN() { return secret_('LINE_TOKEN'); },
+  get COACH_PWD()  { return secret_('COACH_PWD'); },
 };
+
+var _secretCache = {};
+function secret_(key) {
+  if (!(key in _secretCache)) {
+    _secretCache[key] = String(PropertiesService.getScriptProperties().getProperty(key) || '').trim();
+  }
+  return _secretCache[key];
+}
+
+// 在 GAS 編輯器手動執行，檢查指令碼屬性是否設定正確（不會印出密鑰本身）
+function checkSetup() {
+  const lines = [];
+  const pwd = secret_('COACH_PWD');
+  lines.push(pwd ? `✅ COACH_PWD 已設定（${pwd.length} 個字）` : '❌ 缺少 COACH_PWD');
+
+  const token = secret_('LINE_TOKEN');
+  if (!token) {
+    lines.push('❌ 缺少 LINE_TOKEN');
+  } else {
+    // 實際呼叫 LINE API 驗證權杖是否有效
+    const r = UrlFetchApp.fetch('https://api.line.me/v2/bot/info', {
+      headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true,
+    });
+    if (r.getResponseCode() === 200) {
+      const info = JSON.parse(r.getContentText());
+      lines.push(`✅ LINE_TOKEN 有效，連到官方帳號「${info.displayName}」`);
+    } else {
+      lines.push(`❌ LINE_TOKEN 無效（LINE 回應 ${r.getResponseCode()}），請確認貼的是新發行的權杖`);
+    }
+  }
+  const msg = lines.join('\n');
+  Logger.log(msg);
+  return msg;
+}
 
 // Column indices (1-based) — Enrollments 含 CERT 欄（第6欄）
 const C = {
@@ -301,7 +338,8 @@ function removeEnrollment_(sessionId, match, sRowIdx, sData) {
 // ── 教練 API ─────────────────────────────────────────────────
 // 登入時順便把活動列表一起回傳，省一次 GAS 往返（連續請求會被排隊，很花時間）
 function coachLogin({password}) {
-  if (password !== CFG.COACH_PWD) return {ok:false, error:'密碼錯誤'};
+  if (!CFG.COACH_PWD) return {ok:false, error:'後台尚未設定教練密碼，請在 GAS 指令碼屬性加入 COACH_PWD'};
+  if (!auth(password)) return {ok:false, error:'密碼錯誤'};
   try {
     return {ok:true, sessions: allSessions({password}).sessions};
   } catch(e) {
@@ -573,9 +611,10 @@ function notifyStudents({password, sessionId, message}) {
 }
 
 // ── 工具 ─────────────────────────────────────────────────────
-function auth(p) { return p===CFG.COACH_PWD; }
+// 密碼未設定時一律拒絕（避免空密碼也能通過）
+function auth(p) { const pwd = CFG.COACH_PWD; return !!pwd && p === pwd; }
 function noAuth() { return {ok:false,error:'未授權'}; }
-function checkPassword(p) { return p===CFG.COACH_PWD ? {ok:true} : {ok:false,error:'未授權'}; }
+function checkPassword(p) { return auth(p) ? {ok:true} : {ok:false,error:'未授權'}; }
 // 試算表與工作表快取 — 每次 openById 都是昂貴的 API 呼叫，
 // 同一次請求內重複開啟是卡頓主因，這裡快取起來重複使用
 var _ssCache = null, _shCache = {};

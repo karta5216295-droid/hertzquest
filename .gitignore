@@ -12,3 +12,6 @@ config.local.gs
 .idea/
 *.swp
 *.swo
+
+# clasp 本機專案（內含真實金鑰，不要上傳）
+v2/clasp-project/
